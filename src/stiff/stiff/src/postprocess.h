@@ -83,7 +83,7 @@ public:
 	{
 
 		init(correctionfiles);
-		std::cout<<point_count_ogm_.ogmwidth_cell<<"...............................,,,,,,,,,<<<<<<<<<<<<"<<std::endl;
+//		std::cout<<point_count_ogm_.ogmwidth_cell<<"...............................,,,,,,,,,<<<<<<<<<<<<"<<std::endl;
 	}
 	~PostProcess()
 	{

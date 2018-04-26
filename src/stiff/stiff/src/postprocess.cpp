@@ -1896,7 +1896,7 @@
 //				MyTime mytime;
 //				mytime.start();
 				countogmpoints(vtotalcloud_);
-//				showOGM("grid",point_count_ogm_,vecright_,vecup_);
+				showOGM("grid",point_count_ogm_,vecright_,vecup_);
 				vecright_.clear();							//TODO:检测下size
 				vecup_.clear();
 //				mytime.show_s();
