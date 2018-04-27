@@ -37,9 +37,9 @@ install(DIRECTORY launch DESTINATION share/stiff/)
 
 include(FindPkgConfig)
 find_package(LuaGoogle REQUIRED)
-#find_package(PCL 1.7 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
 
-find_package(PCL 1.8 REQUIRED)
+#find_package(PCL 1.8 REQUIRED)
 #set(OpenCV_DIR /usr/local/share/OpenCV)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)

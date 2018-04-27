@@ -684,6 +684,7 @@
 	void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPtr> cloud)
 	{
 		memset(point_count_ogm_.ogm , 0 , point_count_ogm_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
+		memset(point_count_ogm_show_.ogm , 0 , point_count_ogm_show_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
 		memset(maxz_ogm_.ogm , 0 , maxz_ogm_.ogmcell_size*sizeof(int));
 //		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
 		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned char));
@@ -718,6 +719,41 @@
 					{
 						int index = row * point_count_ogm_.ogmwidth_cell + col;
 						point_count_ogm_.ogm[index]++;
+					}
+				}
+
+			}
+			//		show smaller grids
+			for (int i = 0; i < cloud[cloudi]->points.size(); i++)
+			{
+
+				float x = cloud[cloudi]->points[i].x,
+						y = cloud[cloudi]->points[i].y,
+						z = cloud[cloudi]->points[i].z;
+
+				float newy = y + ogm_y_offset;//ogm_y_offset
+				//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
+				//					                continue;
+				if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
+					continue;
+				}
+
+				if((x >=-point_count_ogm_show_.ogmwidth / 2  && x <= point_count_ogm_show_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+						(newy >=0 && newy < point_count_ogm_show_.ogmheight) &&
+						( z <=  Z_MAX))
+				{
+					int col = boost::math::round(x / point_count_ogm_show_.ogmresolution) + ( point_count_ogm_show_.ogmwidth_cell - 1 ) / 2;
+					int row = boost::math::round(newy / point_count_ogm_show_.ogmresolution) ;
+
+
+
+
+
+					if((row >=0 && row < point_count_ogm_show_.ogmheight_cell)
+							&& (col >=0 && col < point_count_ogm_show_.ogmwidth_cell))
+					{
+						int index = row * point_count_ogm_show_.ogmwidth_cell + col;
+						point_count_ogm_show_.ogm[index]++;
 					}
 				}
 
@@ -784,8 +820,33 @@
 			//		std::cout<<std::endl;
 		}
 
+				cvNamedWindow("testwindow",0);
+				IplImage *slopemat = cvCreateImage(cvSize(point_count_ogm_show_.ogmwidth_cell,point_count_ogm_show_.ogmheight_cell),IPL_DEPTH_8U,1);
+				cvZero(slopemat);
+				int heightnum = point_count_ogm_show_.ogmheight_cell;
+				int widthnum = point_count_ogm_show_.ogmwidth_cell;
+				for(int j=0;j<point_count_ogm_show_.ogmheight_cell;j++)
+				{
+					unsigned char* pdata = (unsigned char*)(slopemat->imageData + (point_count_ogm_show_.ogmheight_cell - 1 - j)* slopemat->widthStep);
+					for(int i=0 ;i < point_count_ogm_show_.ogmwidth_cell ; i++)
+					{
+						unsigned char val = point_count_ogm_show_.ogm[i + j*point_count_ogm_show_.ogmwidth_cell];//val为每个栅格的点云数量
+						if(val > 0)
+						{
+							pdata[i]=abs(val*10);//以val×10作为像素值
+
+						}
+
+					}
+
+				}
+			    cvShowImage("testwindow",slopemat);
+			    cvWaitKey(10);
+			    cvReleaseImage(&slopemat);
+		//	   		show smaller grids
+
 		//下面将考虑通过检测比较大片的无点区域判断是否为悬崖zx
-		for(int i=20/point_count_ogm_.ogmresolution+3;i<45/point_count_ogm_.ogmresolution;i++)//
+		for(int i=0;i<45/point_count_ogm_.ogmresolution;i++)//
 		{
 //			std::cout<<"......11111111111111.................."<<std::endl;
 			int end_right=point_count_ogm_.ogmwidth_cell/2+16/point_count_ogm_.ogmresolution;
@@ -795,7 +856,7 @@
 				int count=0;
 				int index=i*point_count_ogm_.ogmwidth_cell+j;
 															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<6&&count<end_right-j)//0221这里的10之前是16zx
+								while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<end_right-j)//0221这里的10之前是16zx
 								{
 //									std::cout<<"......11111111111111.................."<<std::endl;
 									count++;
@@ -863,7 +924,7 @@
 				int count=0;
 				int index=i*point_count_ogm_.ogmwidth_cell+j;
 															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<6&&count<(point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j))//0221这里的10之前是16zx
+								while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<(point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j))//0221这里的10之前是16zx
 								{
 //									std::cout<<"................"<<count+i<<std::endl;
 									count++;
@@ -997,7 +1058,7 @@
 									&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
 								continue;
 							int index=i*point_count_ogm_.ogmwidth_cell+j;
-							while(point_count_ogm_.ogm[index]==0&&count<6&&count<50/point_count_ogm_.ogmresolution-i)//&&count<point_count_ogm_.ogmheight_cell-i
+							while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<6&&count<50/point_count_ogm_.ogmresolution-i)//&&count<point_count_ogm_.ogmheight_cell-i
 							{
 								count++;
 								index+=point_count_ogm_.ogmwidth_cell;
@@ -1039,6 +1100,7 @@
 	void PostProcess::countogmpoints(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud)
 	{
 		memset(point_count_ogm_.ogm , 0 , point_count_ogm_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
+		memset(point_count_ogm_show_.ogm , 0 , point_count_ogm_show_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
 		memset(maxz_ogm_.ogm , 0 , maxz_ogm_.ogmcell_size*sizeof(int));
 //		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
 		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned char));
@@ -1079,6 +1141,65 @@
 		            }
 
 		}
+//		show smaller grids
+		for (int i = 0; i < cloud->points.size(); i++)
+		{
+
+		            float x = cloud->points[i].x,
+		                  y = cloud->points[i].y,
+		                  z = cloud->points[i].z;
+
+		            float newy = y + ogm_y_offset;//ogm_y_offset
+//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
+//					                continue;
+					if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
+						continue;
+					}
+
+		            if((x >=-point_count_ogm_show_.ogmwidth / 2  && x <= point_count_ogm_show_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+		                    (newy >=0 && newy < point_count_ogm_show_.ogmheight) &&
+		                    ( z <=  Z_MAX))
+		            {
+		                int col = boost::math::round(x / point_count_ogm_show_.ogmresolution) + ( point_count_ogm_show_.ogmwidth_cell - 1 ) / 2;
+		                int row = boost::math::round(newy / point_count_ogm_show_.ogmresolution) ;
+
+
+
+
+
+		            if((row >=0 && row < point_count_ogm_show_.ogmheight_cell)
+		                                  && (col >=0 && col < point_count_ogm_show_.ogmwidth_cell))
+		            {
+		            	int index = row * point_count_ogm_show_.ogmwidth_cell + col;
+		            	point_count_ogm_show_.ogm[index]++;
+		            }
+		            }
+
+		}
+		cvNamedWindow("testwindow",0);
+		IplImage *slopemat = cvCreateImage(cvSize(point_count_ogm_show_.ogmwidth_cell,point_count_ogm_show_.ogmheight_cell),IPL_DEPTH_8U,1);
+		cvZero(slopemat);
+		int heightnum = point_count_ogm_show_.ogmheight_cell;
+		int widthnum = point_count_ogm_show_.ogmwidth_cell;
+		for(int j=0;j<point_count_ogm_show_.ogmheight_cell;j++)
+		{
+			unsigned char* pdata = (unsigned char*)(slopemat->imageData + (point_count_ogm_show_.ogmheight_cell - 1 - j)* slopemat->widthStep);
+			for(int i=0 ;i < point_count_ogm_show_.ogmwidth_cell ; i++)
+			{
+				unsigned char val = point_count_ogm_show_.ogm[i + j*point_count_ogm_show_.ogmwidth_cell];//val为每个栅格的点云数量
+				if(val > 0)
+				{
+					pdata[i]=abs(val*10);//以val×10作为像素值
+
+				}
+
+			}
+
+		}
+	    cvShowImage("testwindow",slopemat);
+	    cvWaitKey(10);
+	    cvReleaseImage(&slopemat);
+//	   		show smaller grids
 
 		//test
 //		for(int i=point_count_ogm_.ogmwidth_cell/2;i<point_count_ogm_.ogmwidth_cell/2+6/point_count_ogm_.ogmresolution;i++){
@@ -1839,11 +1960,17 @@
 			pcl::fromROSMsg(*cloudmsg, *tempcloud);//获取当前帧点云数据
 			std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> outputclouds;
 			std::vector<pcl::PointXYZI> lidarpropertys;
+			char cloud_name[50];
+			memset( cloud_name, 0 , 50);
+			sprintf( cloud_name, "passablecloud");
+			ShowViewerCloudPoints(cloud_viewer_, tempcloud,
+					cloud_name, 0, 0, 255);
+			cloud_viewer_->spinOnce();
 //			analysisCloud(tempcloud,outputclouds,lidarpropertys);
 
 //			对齐时间戳 拼接点云
 #ifdef FUSE
-			if(lworldclouds_.size()>=5)
+			if(lworldclouds_.size()>=2)
 				lworldclouds_.pop_front();
 			vtotalcloud_.clear();
 			vtotalcloud_.push_back(tempcloud);//将当前点云赋给totalcloud_

@@ -63,8 +63,9 @@
 #define LOCAL_IP "192.168.0.112"
 //#define LOCAL_IP "127.0.0.1"
 #define FUSE
+#define POINT_COUNT_THRESH 1
 #define FROMLADAR_LOCAL_PORT 9906
-#define PATHTHRESH 1.3//判断激光雷达到悬崖候选区域是否有障碍物zx
+#define PATHTHRESH 1.6//判断激光雷达到悬崖候选区域是否有障碍物zx
 #define GRID_THRESH 2
 #define GRID_THRESH2 6//6
 #define GRID_THRESH3 6//10
@@ -79,7 +80,7 @@ public:
 	typedef std::pair<double,transform::Rigid3d> TimePosePair;
 	PostProcess(ros::NodeHandle& nodehandle,const std::string& correctionfiles):nodehandle_(nodehandle)
 	,processthread_(NULL)
-	,processthreadfinished_ (false),point_count_ogm_(70,40,0.8),maxz_ogm_(70,40,0.2),ogm_msg_(70,40,0.2),cloud_viewer_(new PCLVisualizer ("HDL Cloud")),totalclouds_(new pcl::PointCloud<pcl::PointXYZI>)
+	,processthreadfinished_ (false),point_count_ogm_show_(70,40,0.2),point_count_ogm_(70,40,0.8),maxz_ogm_(70,40,0.2),ogm_msg_(70,40,0.2),cloud_viewer_(new PCLVisualizer ("HDL Cloud")),totalclouds_(new pcl::PointCloud<pcl::PointXYZI>)
 	{
 
 		init(correctionfiles);
@@ -169,6 +170,7 @@ protected:
     };
 private:
 	OGMData<int> point_count_ogm_;
+	OGMData<int> point_count_ogm_show_;
 	OGMData<float> maxz_ogm_;
 	OGMData<unsigned char> ogm_msg_;
 	vector<int> vectest_;
