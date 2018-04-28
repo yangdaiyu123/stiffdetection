@@ -1,0 +1,13 @@
+/home/zx/CODE/ws0214/install_isolated/_setup_util.py
+/home/zx/CODE/ws0214/install_isolated/env.sh
+/home/zx/CODE/ws0214/install_isolated/setup.bash
+/home/zx/CODE/ws0214/install_isolated/setup.sh
+/home/zx/CODE/ws0214/install_isolated/setup.zsh
+/home/zx/CODE/ws0214/install_isolated/.rosinstall
+/home/zx/CODE/ws0214/install_isolated/lib/pkgconfig/sub_test.pc
+/home/zx/CODE/ws0214/install_isolated/share/sub_test/cmake/sub_testConfig.cmake
+/home/zx/CODE/ws0214/install_isolated/share/sub_test/cmake/sub_testConfig-version.cmake
+/home/zx/CODE/ws0214/install_isolated/share/sub_test/package.xml
+/home/zx/CODE/ws0214/install_isolated/lib/sub_test/sub_test_node
+/home/zx/CODE/ws0214/install_isolated/bin/sub_test_node
+/home/zx/CODE/ws0214/install_isolated/share/sub_test/launch/sub_test.launch

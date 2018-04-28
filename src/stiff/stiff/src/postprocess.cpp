@@ -69,9 +69,58 @@
 		     }
 		  stiffcloud_= Cloud::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 		  normalcloud_ = Cloud::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
-//		  SetViewerPCL( cloud_viewer_);
-//		  SetViewerEgoVehicleModel( cloud_viewer_);
+		  SetViewerPCL( cloud_viewer_);
+		  SetViewerEgoVehicleModel( cloud_viewer_);
 		  processthread_ = new boost::thread(boost::bind(&PostProcess::process,this));
+
+//		    cloud_viewer_->addCoordinateSystem (3.0);
+//		    cloud_viewer_->setBackgroundColor (0, 0, 0);
+//		    cloud_viewer_->initCameraParameters ();
+//		    cloud_viewer_->setCameraPosition (0.0, 0.0, 30.0, 0.0, 1.0, 0.0, 0);
+//		    cloud_viewer_->setCameraClipDistances (0.0, 100.0);
+//	        float x1 = -1 , x2 = 1 , y1 = -1 , y2 = 3, z = 0;
+//	        float newx1, newx2, newy1, newy2, newz;
+//	        char linename[20];
+//	        pcl::PointXYZI pt1, pt2, pt3, pt4;
+//	        for(int i = 0 ; i < 100 ; i++)
+//	        {
+//	            x1 = -20 ;
+//	            x2 = 20 ;
+//	            y1 = (i - 2) * 1 ;
+//	            y2 = (i - 2) * 1;
+//	            z = 0;
+//	            coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
+//	            coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
+//	            pt1.x = min(newx1 , newx2) ;
+//	            pt1.y = min(newy1 , newy2) ;
+//	            pt1.z = newz;
+//	            pt2.x = max(newx1 , newx2) ;
+//	            pt2.y = max(newy1 , newy2) ;
+//	            pt2.z = newz;
+//	            memset(linename, 0 , 20);
+//	            sprintf(linename , "lat%02d" , i);
+//	            cloud_viewer_->addLine(pt1, pt2, linename);
+//	        }
+//
+//	        for(int i = 0 ; i < 50 ; i++)
+//	        {
+//	            x1 = i * 1 - 20;
+//	            x2 = i * 1 - 20;
+//	            y1 = -20 ;
+//	            y2 = 70 ;
+//	            z = 0;
+//	            coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
+//	            coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
+//	            pt1.x = min(newx1 , newx2) ;
+//	            pt1.y = min(newy1 , newy2) ;
+//	            pt1.z = newz;
+//	            pt2.x = max(newx1 , newx2) ;
+//	            pt2.y = max(newy1 , newy2) ;
+//	            pt2.z = newz;
+//	            memset(linename, 0 , 20);
+//	            sprintf(linename , "lng%02d" , i);
+//	            cloud_viewer_->addLine(pt1, pt2, linename);
+//	        }
 
 	}
 	void PostProcess::coordinate_from_vehicle_to_velodyne(float x, float y , float z, float& newx, float& newy, float& newz)
@@ -302,6 +351,7 @@
 		char cloudname[], double color_red_, double color_green_, double color_blue_ )
 	{
 		cloud_viewer_->removeAllPointClouds();
+
 
 			if ( cloud_show_->size()>0 )
 			{
@@ -684,15 +734,16 @@
 	void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPtr> cloud)
 	{
 		memset(point_count_ogm_.ogm , 0 , point_count_ogm_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
-		memset(point_count_ogm_show_.ogm , 0 , point_count_ogm_show_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
+		memset(point_count_ogm_big_.ogm , 0 , point_count_ogm_big_.ogmcell_size*sizeof(int));
 		memset(maxz_ogm_.ogm , 0 , maxz_ogm_.ogmcell_size*sizeof(int));
-//		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
+		//		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
 		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned char));
 
 		float ogm_y_offset = 20.0f;
 		//为每个栅格赋值点云数量
+		int framecount=0;
 		for(int cloudi=0;cloudi<cloud.size();cloudi++){
-//			cout<<"cloudi sieze if "<<cloud[cloudi]->points.size()<<"    ";
+			//			cout<<"cloudi sieze if "<<cloud[cloudi]->points.size()<<"    ";
 			for (int i = 0; i < cloud[cloudi]->points.size(); i++)
 			{
 
@@ -700,36 +751,6 @@
 						y = cloud[cloudi]->points[i].y,
 						z = cloud[cloudi]->points[i].z;
 
-				float newy = y + ogm_y_offset;//ogm_y_offset
-				//					if(cloud[cloudi]->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
-				//					                continue;
-				if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
-					continue;
-				}
-
-				if((x >=-point_count_ogm_.ogmwidth / 2  && x <= point_count_ogm_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
-						(newy >=0 && newy < point_count_ogm_.ogmheight) &&
-						( z <=  Z_MAX))
-				{
-					int col = boost::math::round(x / point_count_ogm_.ogmresolution) + ( point_count_ogm_.ogmwidth_cell - 1 ) / 2;
-					int row = boost::math::round(newy / point_count_ogm_.ogmresolution) ;
-
-					if((row >=0 && row < point_count_ogm_.ogmheight_cell)
-							&& (col >=0 && col < point_count_ogm_.ogmwidth_cell))
-					{
-						int index = row * point_count_ogm_.ogmwidth_cell + col;
-						point_count_ogm_.ogm[index]++;
-					}
-				}
-
-			}
-			//		show smaller grids
-			for (int i = 0; i < cloud[cloudi]->points.size(); i++)
-			{
-
-				float x = cloud[cloudi]->points[i].x,
-						y = cloud[cloudi]->points[i].y,
-						z = cloud[cloudi]->points[i].z;
 
 				float newy = y + ogm_y_offset;//ogm_y_offset
 				//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
@@ -737,27 +758,77 @@
 				if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
 					continue;
 				}
-
-				if((x >=-point_count_ogm_show_.ogmwidth / 2  && x <= point_count_ogm_show_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
-						(newy >=0 && newy < point_count_ogm_show_.ogmheight) &&
-						( z <=  Z_MAX))
-				{
-					int col = boost::math::round(x / point_count_ogm_show_.ogmresolution) + ( point_count_ogm_show_.ogmwidth_cell - 1 ) / 2;
-					int row = boost::math::round(newy / point_count_ogm_show_.ogmresolution) ;
-
-
-
-
-
-					if((row >=0 && row < point_count_ogm_show_.ogmheight_cell)
-							&& (col >=0 && col < point_count_ogm_show_.ogmwidth_cell))
+				if(framecount==0){																			//第一帧全部都投影到小栅格，部分投影到大栅格,
+					if((x >=-point_count_ogm_.ogmwidth / 2  && x <= point_count_ogm_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+							(newy >=0 && newy < point_count_ogm_.ogmheight) &&
+							( z <=  Z_MAX))
 					{
-						int index = row * point_count_ogm_show_.ogmwidth_cell + col;
-						point_count_ogm_show_.ogm[index]++;
-					}
-				}
+						int col = boost::math::round(x / point_count_ogm_.ogmresolution) + ( point_count_ogm_.ogmwidth_cell - 1 ) / 2;
+						int row = boost::math::round(newy / point_count_ogm_.ogmresolution) ;
 
-			}
+
+
+
+
+						if((row >=0 && row < point_count_ogm_.ogmheight_cell)
+								&& (col >=0 && col < point_count_ogm_.ogmwidth_cell))
+						{
+							int index = row * point_count_ogm_.ogmwidth_cell + col;
+							point_count_ogm_.ogm[index]++;
+						}
+					}
+					if(x*x+y*y<RADIUS){continue;}
+                                        else if(x*x+y*y<400||(x>-5&&x<5&&y<50))
+					{
+//						cout<<"..............."<<endl;
+						if((x >=-point_count_ogm_big_.ogmwidth / 2  && x <= point_count_ogm_big_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+								(newy >=0 && newy < point_count_ogm_big_.ogmheight) &&
+								( z <=  Z_MAX))
+						{
+							int col = boost::math::round(x / point_count_ogm_big_.ogmresolution) + ( point_count_ogm_big_.ogmwidth_cell - 1 ) / 2;
+							int row = boost::math::round(newy / point_count_ogm_big_.ogmresolution) ;
+
+
+
+
+
+							if((row >=0 && row < point_count_ogm_big_.ogmheight_cell)
+									&& (col >=0 && col < point_count_ogm_big_.ogmwidth_cell))
+							{
+								int index = row * point_count_ogm_big_.ogmwidth_cell + col;
+								point_count_ogm_big_.ogm[index]++;
+							}
+						}
+					}
+
+				}
+                                else{
+                                    if(x*x+y*y<RADIUS){continue;}														//这里只拼接半径之外的到大栅格
+                                    else if(x*x+y*y<400||(x>-5&&x<5&&y<50)){
+                                        if((x >=-point_count_ogm_big_.ogmwidth / 2  && x <= point_count_ogm_big_.ogmwidth / 2) &&
+                                                (newy >=0 && newy < point_count_ogm_big_.ogmheight) &&
+                                                ( z <=  Z_MAX))
+                                        {
+                                            int col = boost::math::round(x / point_count_ogm_big_.ogmresolution) + ( point_count_ogm_big_.ogmwidth_cell - 1 ) / 2;
+                                            int row = boost::math::round(newy / point_count_ogm_big_.ogmresolution) ;
+
+
+
+
+
+                                            if((row >=0 && row < point_count_ogm_big_.ogmheight_cell)
+                                                    && (col >=0 && col < point_count_ogm_big_.ogmwidth_cell))
+                                            {
+                                                int index = row * point_count_ogm_big_.ogmwidth_cell + col;
+                                                point_count_ogm_big_.ogm[index]++;
+                                            }
+
+                                        }
+
+                                    }
+                                }
+                        }
+
 
 			//test
 			//		for(int i=point_count_ogm_.ogmwidth_cell/2;i<point_count_ogm_.ogmwidth_cell/2+6/point_count_ogm_.ogmresolution;i++){
@@ -767,35 +838,39 @@
 			//		std::cout<<std::endl;
 			/////////////////////////////////
 			//为每个栅格赋值maxz
-			for (int i = 0; i < cloud[cloudi]->points.size(); i++)
-			{
-				float x = cloud[cloudi]->points[i].x,
-						y = cloud[cloudi]->points[i].y,
-						z = cloud[cloudi]->points[i].z;
-				float newy = y + ogm_y_offset;
-				//			if(cloud[cloudi]->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
-				//			                continue;
-				if(x>-1.5&&x<1.5&&y>-1&&y<4){		//排除车身周围------------------------------------zx
-					continue;
-				}
-
-				//			            newy = y + maxz_ogm_.ogmheight/2;
-				if((x >=-maxz_ogm_.ogmwidth / 2  && x <= maxz_ogm_.ogmwidth / 2) &&
-						(newy >=0 && newy < maxz_ogm_.ogmheight) &&
-						(z >= - 2 && z <=  Z_MAX))
+			if(framecount==0){
+				for (int i = 0; i < cloud[cloudi]->points.size(); i++)//目前没有处理融合的状况
 				{
-					int col = boost::math::round(x / maxz_ogm_.ogmresolution) + ( maxz_ogm_.ogmwidth_cell - 1 ) / 2;
-					int row = boost::math::round(newy / maxz_ogm_.ogmresolution) ;
+					float x = cloud[cloudi]->points[i].x,
+							y = cloud[cloudi]->points[i].y,
+							z = cloud[cloudi]->points[i].z;
+//					if((x*x+y*y)>100) continue;												QNMLGB干嘛要这样啊你这sb
+					float newy = y + ogm_y_offset;
+					//			if(cloud[cloudi]->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
+					//			                continue;
+					if(x>-1.5&&x<1.5&&y>-1&&y<4){		//排除车身周围------------------------------------zx
+						continue;
+					}
 
-					if((row >=0 && row < maxz_ogm_.ogmheight_cell)					//加了_cell的才是栅格zx
-							&& (col >=0 && col < maxz_ogm_.ogmwidth_cell))
+					//			            newy = y + maxz_ogm_.ogmheight/2;
+					if((x >=-maxz_ogm_.ogmwidth / 2  && x <= maxz_ogm_.ogmwidth / 2) &&
+							(newy >=0 && newy < maxz_ogm_.ogmheight) &&
+							(z >= - 2 && z <=  Z_MAX))
 					{
-						int index = row * maxz_ogm_.ogmwidth_cell + col;
-						if( maxz_ogm_.ogm[index] < z)
-							maxz_ogm_.ogm[index] = z;
+						int col = boost::math::round(x / maxz_ogm_.ogmresolution) + ( maxz_ogm_.ogmwidth_cell - 1 ) / 2;
+						int row = boost::math::round(newy / maxz_ogm_.ogmresolution) ;
+
+						if((row >=0 && row < maxz_ogm_.ogmheight_cell)					//加了_cell的才是栅格zx
+								&& (col >=0 && col < maxz_ogm_.ogmwidth_cell))
+						{
+							int index = row * maxz_ogm_.ogmwidth_cell + col;
+							if( maxz_ogm_.ogm[index] < z)
+								maxz_ogm_.ogm[index] = z;
+						}
 					}
 				}
 			}
+			framecount++;
 			///test
 			//		for(int i=maxz_ogm_.ogmwidth_cell/2;i<maxz_ogm_.ogmwidth_cell/2+15/maxz_ogm_.ogmresolution;i++){
 			//				int index=35/maxz_ogm_.ogmresolution*maxz_ogm_.ogmwidth_cell+i;
@@ -820,287 +895,613 @@
 			//		std::cout<<std::endl;
 		}
 
-				cvNamedWindow("testwindow",0);
-				IplImage *slopemat = cvCreateImage(cvSize(point_count_ogm_show_.ogmwidth_cell,point_count_ogm_show_.ogmheight_cell),IPL_DEPTH_8U,1);
-				cvZero(slopemat);
-				int heightnum = point_count_ogm_show_.ogmheight_cell;
-				int widthnum = point_count_ogm_show_.ogmwidth_cell;
-				for(int j=0;j<point_count_ogm_show_.ogmheight_cell;j++)
-				{
-					unsigned char* pdata = (unsigned char*)(slopemat->imageData + (point_count_ogm_show_.ogmheight_cell - 1 - j)* slopemat->widthStep);
-					for(int i=0 ;i < point_count_ogm_show_.ogmwidth_cell ; i++)
-					{
-						unsigned char val = point_count_ogm_show_.ogm[i + j*point_count_ogm_show_.ogmwidth_cell];//val为每个栅格的点云数量
-						if(val > 0)
-						{
-							pdata[i]=abs(val*10);//以val×10作为像素值
 
-						}
-
-					}
-
-				}
-			    cvShowImage("testwindow",slopemat);
-			    cvWaitKey(10);
-			    cvReleaseImage(&slopemat);
-		//	   		show smaller grids
 
 		//下面将考虑通过检测比较大片的无点区域判断是否为悬崖zx
-		for(int i=0;i<45/point_count_ogm_.ogmresolution;i++)//
-		{
-//			std::cout<<"......11111111111111.................."<<std::endl;
-			int end_right=point_count_ogm_.ogmwidth_cell/2+16/point_count_ogm_.ogmresolution;
-			for(int j=point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j<end_right;j++)//车体右侧
-			{
+		//		1、首先检测小区域内有没有悬崖区域等。
+				for(int i=10/point_count_ogm_.ogmresolution;i<30/point_count_ogm_.ogmresolution;i++)//
+				{
+					float thresh;
+					if (i>15/point_count_ogm_.ogmresolution){thresh=GRID_THRESH;}
+					else {thresh=GRID_THRESH+3;}
+		//			std::cout<<"......11111111111111.................."<<std::endl;
+					int end_right=point_count_ogm_.ogmwidth_cell/2+16/point_count_ogm_.ogmresolution;
+					for(int j=point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j<end_right;j++)//车体右侧
+					{
 
-				int count=0;
-				int index=i*point_count_ogm_.ogmwidth_cell+j;
-															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<end_right-j)//0221这里的10之前是16zx
-								{
-//									std::cout<<"......11111111111111.................."<<std::endl;
-									count++;
-									index++;
-								}
-//								int tempindex=index;
-//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-								index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
-								int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
-								int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
-								int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
-								if(count>GRID_THRESH)								//可调参数
-								{
-									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-									if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
-									else{
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*j-4;l<4*j;l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz1){
-													maxz1=maxz_ogm_.ogm[small_i];
-													if(abs(maxz1)>0.1) break;
-												}
-											}
-											if(abs(maxz1)>0.1) break;
-										}
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*(j+count);l<4*(j+count+1);l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz2){
-													maxz2=maxz_ogm_.ogm[small_i];
-													if(abs(maxz2)>0.1) break;
-												}
-											}
-											if(abs(maxz2)>0.1) break;
-										}
-										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-									}
-									if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
-									{
-//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
-										memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
-
-//										for(int d=0;d<count;d++)
-//										{
-//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-//										}
-//										std::cout<<"........................"<<std::endl;
-										vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-										vecright_.push_back(j);
-										vecright_.push_back(count);
-
-									}
-								}
-								if(count>0)
-								j+=count-1;
-			}
-
-			for(int j=point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j++)//车体左侧
-			{
-
-				int count=0;
-				int index=i*point_count_ogm_.ogmwidth_cell+j;
-															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<(point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j))//0221这里的10之前是16zx
-								{
-//									std::cout<<"................"<<count+i<<std::endl;
-									count++;
-									index++;
-
-								}
-								int tempindex=index;
-//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-								index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
-								int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
-								int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
-								int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
-								if(count>GRID_THRESH)								//可调参数
-								{
-									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-									if(j==point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution){thresh_flat=-1;}
-									else{
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*j-1;l>4*j-5;l--){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz1){
-													maxz1=maxz_ogm_.ogm[small_i];
-													if(abs(maxz1)>0.1) break;
-												}
-											}
-											if(abs(maxz1)>0.1) break;
-										}
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*(j+count);l<4*(j+count+1);l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz2){
-													maxz2=maxz_ogm_.ogm[small_i];
-													if(abs(maxz2)>0.1) break;
-												}
-											}
-											if(abs(maxz2)>0.1) break;
-										}
-										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-									}
-									if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//&&abs(maxz1-maxz2)>thresh_flat
-									{
-//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
-//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
-										memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
-//										for(int d=0;d<count;d++)
-//										{
-//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-//										}
-//										std::cout<<"........................"<<std::endl;
-										vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-										vecright_.push_back(j);
-										vecright_.push_back(count);
-
-									}
-								}
-								if(count>0)
-									j+=count-1;
-
-
-			}
-//
-		}
-		//test
-//		for(int i=13;i<21;i++){
-//			int index=35*point_count_ogm_.ogmwidth_cell+i;
-//			int count=0;
-//			while(point_count_ogm_.ogm[index]==0){
-//				count++;
-//				index++;
-//			}
-//			if(count>2){
-//				if(pathClear(35,i)){
-//					std::cout<<"yesyesyes"<<std::endl;
-//				}
-//				else cout<<"nonono"<<std::endl;
-//			}
-//		}
-		//test done
-		for(int j=point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j++)//车体上下范围
-		{
-
-//			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
-//			{
-//				int count=0;
-//				//排除车体周围范围
-//				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
-//						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
-//					continue;
-//				int index=i*point_count_ogm_.ogmwidth_cell+j;
-//				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
-//				{
-//					count++;
-//					index+=point_count_ogm_.ogmwidth_cell;
-//				}
-//				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
-////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-//				if(count>GRID_THRESH)								//可调参数
-//				{
-//					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
-//					{
-//						for(int k=0;k<count;k++)
-//						{
-//							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
-//							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
-////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
-////							ogm_msg_.ogm[index]=5;;
-////							ogm_msg_.ogm[index+1]=5;
-//							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
-//						}
-////										std::cout<<"........................"<<std::endl;
-//						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-//						vecup_.push_back(j);
-//						vecup_.push_back(count);
-//
-//					}
-//				}
-//				if(count>0) i+=count-1;
-//
-//			}
-			for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<50/point_count_ogm_.ogmresolution;i++)
+						float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+						float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+						if((actual_x*actual_x+actual_y*actual_y)>RADIUS){
+							continue;
+						}
+						int count=0;
+						int index=i*point_count_ogm_.ogmwidth_cell+j;
+																	//用于记录连续没有点云的栅格数
+						float bound=0;
+						while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS)//0221这里的10之前是16zx
 						{
-							int thresh;
-							if(i<45) thresh=GRID_THRESH;
-							else if(i<55) thresh=GRID_THRESH2;
-							else thresh=GRID_THRESH3;
-							int count=0;
-							if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
-									&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
-								continue;
-							int index=i*point_count_ogm_.ogmwidth_cell+j;
-							while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&count<6&&count<50/point_count_ogm_.ogmresolution-i)//&&count<point_count_ogm_.ogmheight_cell-i
-							{
-								count++;
-								index+=point_count_ogm_.ogmwidth_cell;
-							}
-//							index=i*point_count_ogm_.ogmwidth_cell+j;//复位zx
-							index=i*4*ogm_msg_.ogmwidth_cell+j*4;
-//							int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-							if(count>thresh)								//可调参数
-							{
-								if(pathClear(4*i,4*j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
-								{
-									for(int k=0;k<count;k++)
-									{
-//										ogm_msg_.ogm[index]=1;
-//										index+=point_count_ogm_.ogmwidth_cell; //在图像和栅格坐标系下分别是+= 和-=
-										memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-//										std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
-										//							ogm_msg_.ogm[index]=5;;
-										//							ogm_msg_.ogm[index+1]=5;
-										index+=4*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
-									}
-			//										std::cout<<"........................"<<std::endl;
-									vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-									vecup_.push_back(j);
-									vecup_.push_back(count);
-
-								}
-							}
-							if(count>0) i+=count-1;
+		//									std::cout<<"................"<<count+i<<std::endl;
+							count++;
+							index++;
+							bound=(j-20/point_count_ogm_.ogmresolution+count)*0.2*(j-20/point_count_ogm_.ogmresolution+count)*0.2+(i-20/point_count_ogm_.ogmresolution)*0.2
+									*(i-20/point_count_ogm_.ogmresolution)*0.2;
 
 						}
-		}
+		//								int tempindex=index;
+		//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+										index=i*ogm_msg_.ogmwidth_cell+j;//栅格地图上悬崖起始点索引
+										int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+										int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+										int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+										if(count>thresh)								//可调参数
+										{
+		//									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+		//									if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
+		//									else{
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*j-4;l<4*j;l++){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz1){
+		//													maxz1=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz1)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz1)>0.1) break;
+		//										}
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*(j+count);l<4*(j+count+1);l++){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz2){
+		//													maxz2=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz2)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz2)>0.1) break;
+		//										}
+		//										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+		//									}
 
+		#ifdef SMALLGRID
+											if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+		//									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+		#else
+											if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+		#endif
+												{
+		//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
+												memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+		//										for(int d=0;d<count;d++)
+		//										{
+		//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+		//										}
+		//										std::cout<<"........................"<<std::endl;
+												vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+												vecright_.push_back(j);
+												vecright_.push_back(count);
+
+											}
+										}
+										if(count>0)
+										j+=count-1;
+					}
+
+					for(int j=point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j++)//车体左侧
+					{
+						float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+						float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+						if((actual_x*actual_x+actual_y*actual_y)>RADIUS)
+						{
+							continue;
+						}
+						int count=0;
+						int index=i*point_count_ogm_.ogmwidth_cell+j;
+																	//用于记录连续没有点云的栅格数
+										float bound=0;
+										while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS&&count<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j)//0221这里的10之前是16zx
+										{
+		//									std::cout<<"................"<<count+i<<std::endl;
+											count++;
+											index++;
+											bound=(j-20/point_count_ogm_.ogmresolution+count)*0.2*(j-20/point_count_ogm_.ogmresolution+count)*0.2+(i-20/point_count_ogm_.ogmresolution)*0.2
+													*(i-20/point_count_ogm_.ogmresolution)*0.2;
+
+										}
+										int tempindex=index;
+		//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+										index=i*ogm_msg_.ogmwidth_cell+j;//栅格地图上悬崖起始点索引
+										int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+										int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+										int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+										if(count>thresh)								//可调参数
+										{
+		//									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+		//									if(j==point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution){thresh_flat=-1;}
+		//									else{
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*j-1;l>4*j-5;l--){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz1){
+		//													maxz1=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz1)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz1)>0.1) break;
+		//										}
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*(j+count);l<4*(j+count+1);l++){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz2){
+		//													maxz2=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz2)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz2)>0.1) break;
+		//										}
+		//										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+		//									}
+		#ifdef SMALLGRID
+											if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+		//									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+		#else
+											if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+		#endif
+											{
+		//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
+		//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
+												memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+		//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+		//										for(int d=0;d<count;d++)
+		//										{
+		//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+		//										}
+		//										std::cout<<"........................"<<std::endl;
+												vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+												vecright_.push_back(j);
+												vecright_.push_back(count);
+
+											}
+										}
+										if(count>0)
+											j+=count-1;
+
+
+					}
+		//
+				}
+				//test
+		//		for(int i=13;i<21;i++){
+		//			int index=35*point_count_ogm_.ogmwidth_cell+i;
+		//			int count=0;
+		//			while(point_count_ogm_.ogm[index]==0){
+		//				count++;
+		//				index++;
+		//			}
+		//			if(count>2){
+		//				if(pathClear(35,i)){
+		//					std::cout<<"yesyesyes"<<std::endl;
+		//				}
+		//				else cout<<"nonono"<<std::endl;
+		//			}
+		//		}
+				//test done
+				for(int j=point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j++)//车体上下范围
+				{
+
+		//			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
+		//			{
+		//				int count=0;
+		//				//排除车体周围范围
+		//				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+		//						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+		//					continue;
+		//				int index=i*point_count_ogm_.ogmwidth_cell+j;
+		//				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
+		//				{
+		//					count++;
+		//					index+=point_count_ogm_.ogmwidth_cell;
+		//				}
+		//				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
+		////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+		//				if(count>GRID_THRESH)								//可调参数
+		//				{
+		//					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+		//					{
+		//						for(int k=0;k<count;k++)
+		//						{
+		//							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+		//							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+		////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
+		////							ogm_msg_.ogm[index]=5;;
+		////							ogm_msg_.ogm[index+1]=5;
+		//							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
+		//						}
+		////										std::cout<<"........................"<<std::endl;
+		//						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+		//						vecup_.push_back(j);
+		//						vecup_.push_back(count);
+		//
+		//					}
+		//				}
+		//				if(count>0) i+=count-1;
+		//
+		//			}
+					for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<50/point_count_ogm_.ogmresolution;i++)
+					{
+						float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+						float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+						if((actual_x*actual_x+actual_y*actual_y)>RADIUS)
+						{
+							continue;
+						}
+						int thresh;
+                                                if(i<40/point_count_ogm_.ogmresolution) thresh=GRID_THRESH;
+                                                else if(i<50/point_count_ogm_.ogmresolution) thresh=GRID_THRESH2;
+						else thresh=GRID_THRESH3;
+						int count=0;
+						if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+								&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+							continue;
+						int index=i*point_count_ogm_.ogmwidth_cell+j;
+						float bound=0;
+
+						while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS)//&&count<point_count_ogm_.ogmheight_cell-i
+						{
+		//					cout<<"the point count is  "<<i<<"  "<<j<<endl;
+		//					cout<<"the index is "<<index<<endl;
+							bound=(j-20/point_count_ogm_.ogmresolution)*0.2*(j-20/point_count_ogm_.ogmresolution)*0.2+(i-20/point_count_ogm_.ogmresolution+count)*0.2
+									*(i-20/point_count_ogm_.ogmresolution+count)*0.2;
+
+							count++;
+							index+=point_count_ogm_.ogmwidth_cell;
+						}
+		//				cout<<"the count is "<<count<<endl;
+						//							index=i*point_count_ogm_.ogmwidth_cell+j;//复位zx
+						index=i*ogm_msg_.ogmwidth_cell+j;
+						//							int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+						if(count>GRID_THRESH)								//可调参数
+						{
+							if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+							{
+								for(int k=0;k<count;k++)
+								{
+									ogm_msg_.ogm[index]=5;
+									index+=point_count_ogm_.ogmwidth_cell; //在图像和栅格坐标系下分别是+= 和-=
+
+
+								}
+		//						std::cout<<"............jj is............"<<j<<std::endl;
+								vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+								vecup_.push_back(j);
+								vecup_.push_back(count);
+
+							}
+						}
+						if(count>0) i+=count-1;
+
+					}
+				}
+		//		2、检测10m之外
+		//		2.1、左右两侧
+				for(int i=30/point_count_ogm_big_.ogmresolution;i<41/point_count_ogm_big_.ogmresolution;i++)//
+				{
+
+		//			std::cout<<"......11111111111111.................."<<std::endl;
+					float thresh;
+					if(i<40/point_count_ogm_big_.ogmresolution){thresh=GRID_THRESH_BIG;}
+					else{thresh=int(GRID_THRESH_BIG*1.5);}
+					int end_right=point_count_ogm_big_.ogmwidth_cell/2+20/point_count_ogm_big_.ogmresolution;
+					for(int j=point_count_ogm_big_.ogmwidth_cell/2+4/point_count_ogm_big_.ogmresolution;j<end_right;j++)//车体右侧
+					{
+
+						float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+						float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+						if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400)){
+							continue;
+						}
+						int count=0;
+						int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+																	//用于记录连续没有点云的栅格数
+						float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+								*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+						while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&bound<400)//0221这里的10之前是16zx
+						{
+		//									std::cout<<"................"<<count+i<<std::endl;
+							count++;
+							index++;
+							bound=(j-20/point_count_ogm_big_.ogmresolution+count)*0.4*(j-20/point_count_ogm_big_.ogmresolution+count)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+									*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+
+
+
+						}
+		//								int tempindex=index;
+		//								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+										index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
+										int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+										int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+										int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+										if(count>thresh)								//可调参数
+										{
+//											float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+//											if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
+//											else{
+//												for(int k=4*i;k<4*i+4;k++){
+//													for(int l=4*j-4;l<4*j;l++){
+//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+//														if(maxz_ogm_.ogm[small_i]>maxz1){
+//															maxz1=maxz_ogm_.ogm[small_i];
+//															if(abs(maxz1)>0.1) break;
+//														}
+//													}
+//													if(abs(maxz1)>0.1) break;
+//												}
+//												for(int k=4*i;k<4*i+4;k++){
+//													for(int l=4*(j+count);l<4*(j+count+1);l++){
+//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+//														if(maxz_ogm_.ogm[small_i]>maxz2){
+//															maxz2=maxz_ogm_.ogm[small_i];
+//															if(abs(maxz2)>0.1) break;
+//														}
+//													}
+//													if(abs(maxz2)>0.1) break;
+//												}
+//												thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+//											}
+
+		#ifdef SMALLGRID
+		//									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+		//									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+
+//											if((pathClear(4*i,j*4)&&pathClear((i)*4,4*(j+count/2)))&&pathClear((i)*4,4*(j+count))&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+											bool state=false;
+											for(int kk=0;kk<count;kk++){
+												state=state||pathClear(2*i,2*(j+kk));
+
+												if(state) {
+
+													break;
+												}
+											}
+//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+											if(state)//
+		#endif
+												{
+		//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
+//												memset(&ogm_msg_.ogm[index],5,4*count*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+		//										for(int d=0;d<count;d++)
+		//										{
+		//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+		//										}
+		//										std::cout<<"........................"<<std::endl;
+												vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+												vecright_big_.push_back(j);
+												vecright_big_.push_back(count);
+
+											}
+										}
+										if(count>0)
+										j+=count-1;
+					}
+
+					for(int j=point_count_ogm_big_.ogmwidth_cell/2-20/point_count_ogm_big_.ogmresolution;j<point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution;j++)//车体左侧
+					{
+						float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+						float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+						if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400)){
+							continue;
+						}
+						int count=0;
+						int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+																	//用于记录连续没有点云的栅格数
+
+						float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+								*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+						while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&count<point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution-j&&bound<400)//0221这里的10之前是16zx
+						{
+		//									std::cout<<"................"<<count+i<<std::endl;
+							bound=(j-20/point_count_ogm_big_.ogmresolution+count)*0.4*(j-20/point_count_ogm_big_.ogmresolution+count)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+									*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+							count++;
+							index++;
+
+
+						}
+										int tempindex=index;
+		//								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+										index=4*i*ogm_msg_.ogmwidth_cell+4*j;//栅格地图上悬崖起始点索引
+										int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+										int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+										int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+										if(count>thresh)								//可调参数
+										{
+		//									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+		//									if(j==point_count_ogm_big_.ogmwidth_cell/2-20/point_count_ogm_big_.ogmresolution){thresh_flat=-1;}
+		//									else{
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*j-1;l>4*j-5;l--){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz1){
+		//													maxz1=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz1)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz1)>0.1) break;
+		//										}
+		//										for(int k=4*i;k<4*i+4;k++){
+		//											for(int l=4*(j+count);l<4*(j+count+1);l++){
+		//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+		//												if(maxz_ogm_.ogm[small_i]>maxz2){
+		//													maxz2=maxz_ogm_.ogm[small_i];
+		//													if(abs(maxz2)>0.1) break;
+		//												}
+		//											}
+		//											if(abs(maxz2)>0.1) break;
+		//										}
+		//										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+		//									}
+		#ifdef SMALLGRID
+		//									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+		//									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+		//#else
+//											if((pathClear(4*i,j*4)&&pathClear((i)*4,4*(j+count/2)))&&pathClear((i)*4,4*(j+count)))	//判断一下由雷达到无点区域中点之间有无障碍
+											bool state=false;
+											for(int kk=0;kk<count;kk++){
+												state=state||pathClear(2*i,2*(j+kk));
+
+												if(state) {
+
+													break;
+												}
+											}
+//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+											if(state)//
+		#endif
+											{
+		//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
+		//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
+//												memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+		//										for(int d=0;d<count;d++)
+		//										{
+		//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+		//										}
+		//										std::cout<<"........................"<<std::endl;
+												vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+												vecright_big_.push_back(j);
+												vecright_big_.push_back(count);
+
+											}
+										}
+										if(count>0)
+											j+=count-1;
+
+
+					}
+		//
+				}
+		//		2.2上下侧
+				for(int j=point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution;j<point_count_ogm_big_.ogmwidth_cell/2+4/point_count_ogm_big_.ogmresolution;j++)//车体上下范围
+						{
+
+				//			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
+				//			{
+				//				int count=0;
+				//				//排除车体周围范围
+				//				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+				//						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+				//					continue;
+				//				int index=i*point_count_ogm_.ogmwidth_cell+j;
+				//				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
+				//				{
+				//					count++;
+				//					index+=point_count_ogm_.ogmwidth_cell;
+				//				}
+				//				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
+				////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+				//				if(count>GRID_THRESH)								//可调参数
+				//				{
+				//					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+				//					{
+				//						for(int k=0;k<count;k++)
+				//						{
+				//							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+				//							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+				////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
+				////							ogm_msg_.ogm[index]=5;;
+				////							ogm_msg_.ogm[index+1]=5;
+				//							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
+				//						}
+				////										std::cout<<"........................"<<std::endl;
+				//						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+				//						vecup_.push_back(j);
+				//						vecup_.push_back(count);
+				//
+				//					}
+				//				}
+				//				if(count>0) i+=count-1;
+				//
+				//			}
+                                                        for(int i=30/point_count_ogm_big_.ogmresolution;i<50/point_count_ogm_big_.ogmresolution;i++)
+							{
+								float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+								float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+//								if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400))
+//								{
+//									continue;
+//								}
+								int thresh;
+								if(i<40/point_count_ogm_big_.ogmresolution) thresh=GRID_THRESH_BIG;
+//								else if(i<50/point_count_ogm_big_.ogmresolution) thresh=GRID_THRESH_BIG;
+//								else thresh=GRID_THRESH3;
+								int count=0;
+								if(j>point_count_ogm_big_.ogmwidth_cell/2-3/point_count_ogm_big_.ogmresolution&&j<point_count_ogm_big_.ogmwidth_cell/2+3/point_count_ogm_big_.ogmresolution
+										&&i<point_count_ogm_big_.ogmheight_cell/2+2/point_count_ogm_big_.ogmresolution&&i>point_count_ogm_big_.ogmheight_cell/2-4/point_count_ogm_big_.ogmresolution)
+									continue;
+								int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+		//						float bound=0;
+								if(j==92||j==93||j==94){
+
+								}
+								float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+										*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                                while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&count<50/point_count_ogm_big_.ogmresolution-i)//
+								{
+				//					cout<<"the point count is  "<<i<<"  "<<j<<endl;
+				//					cout<<"the index is "<<index<<endl;
+									bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution+count)*0.4
+											*(i-20/point_count_ogm_big_.ogmresolution+count)*0.4;
+
+									count++;
+									index+=point_count_ogm_big_.ogmwidth_cell;
+								}
+				//				cout<<"the count is "<<count<<endl;
+								//							index=i*point_count_ogm_big_.ogmwidth_cell+j;//复位zx
+								index=4*i*ogm_msg_.ogmwidth_cell+j*4;
+								//							int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+								if(count>thresh)								//可调参数
+								{
+//									if(pathClear(4*i,4*j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+									if(pathClear(2*i,2*j))
+									{
+//										for(int k=0;k<count;k++)
+//										{
+//											memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											index+=4*ogm_msg_.ogmwidth_cell;
+//										}
+				//						std::cout<<"............jj is............"<<j<<std::endl;
+										vecup_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+										vecup_big_.push_back(j);
+										vecup_big_.push_back(count);
+
+									}
+								}
+								if(count>0) i+=count-1;
+
+							}
+						}
 
 	}
 	void PostProcess::countogmpoints(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud)
 	{
 		memset(point_count_ogm_.ogm , 0 , point_count_ogm_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
-		memset(point_count_ogm_show_.ogm , 0 , point_count_ogm_show_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
+		memset(point_count_ogm_big_.ogm , 0 , point_count_ogm_big_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
 		memset(maxz_ogm_.ogm , 0 , maxz_ogm_.ogmcell_size*sizeof(int));
 //		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
 		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned char));
@@ -1110,96 +1511,54 @@
 		for (int i = 0; i < cloud->points.size(); i++)
 		{
 
-		            float x = cloud->points[i].x,
-		                  y = cloud->points[i].y,
-		                  z = cloud->points[i].z;
-
-		            float newy = y + ogm_y_offset;//ogm_y_offset
-//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
-//					                continue;
-					if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
-						continue;
-					}
-
-		            if((x >=-point_count_ogm_.ogmwidth / 2  && x <= point_count_ogm_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
-		                    (newy >=0 && newy < point_count_ogm_.ogmheight) &&
-		                    ( z <=  Z_MAX))
-		            {
-		                int col = boost::math::round(x / point_count_ogm_.ogmresolution) + ( point_count_ogm_.ogmwidth_cell - 1 ) / 2;
-		                int row = boost::math::round(newy / point_count_ogm_.ogmresolution) ;
+			float x = cloud->points[i].x,
+					y = cloud->points[i].y,
+					z = cloud->points[i].z;
+                        float newy = y + ogm_y_offset;//ogm_y_offset
+                        if((x >=-point_count_ogm_.ogmwidth / 2  && x <= point_count_ogm_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+                                        (newy >=0 && newy < point_count_ogm_.ogmheight) &&
+                                        ( z <=  Z_MAX))
+                        {
+                                int col = boost::math::round(x / point_count_ogm_.ogmresolution) + ( point_count_ogm_.ogmwidth_cell - 1 ) / 2;
+                                int row = boost::math::round(newy / point_count_ogm_.ogmresolution) ;
 
 
 
 
 
-		            if((row >=0 && row < point_count_ogm_.ogmheight_cell)
-		                                  && (col >=0 && col < point_count_ogm_.ogmwidth_cell))
-		            {
-		            	int index = row * point_count_ogm_.ogmwidth_cell + col;
-		            	point_count_ogm_.ogm[index]++;
-		            }
-		            }
-
-		}
-//		show smaller grids
-		for (int i = 0; i < cloud->points.size(); i++)
-		{
-
-		            float x = cloud->points[i].x,
-		                  y = cloud->points[i].y,
-		                  z = cloud->points[i].z;
-
-		            float newy = y + ogm_y_offset;//ogm_y_offset
-//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
-//					                continue;
-					if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
-						continue;
-					}
-
-		            if((x >=-point_count_ogm_show_.ogmwidth / 2  && x <= point_count_ogm_show_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
-		                    (newy >=0 && newy < point_count_ogm_show_.ogmheight) &&
-		                    ( z <=  Z_MAX))
-		            {
-		                int col = boost::math::round(x / point_count_ogm_show_.ogmresolution) + ( point_count_ogm_show_.ogmwidth_cell - 1 ) / 2;
-		                int row = boost::math::round(newy / point_count_ogm_show_.ogmresolution) ;
+                                if((row >=0 && row < point_count_ogm_.ogmheight_cell)
+                                                && (col >=0 && col < point_count_ogm_.ogmwidth_cell))
+                                {
+                                        int index = row * point_count_ogm_.ogmwidth_cell + col;
+                                        point_count_ogm_.ogm[index]++;
+                                }
+                        }
+                        if(x*x+y*y<RADIUS){continue;}
+                        else if(x*x+y*y<400)//||(x>-5&&x<5&&y<50)
+                        {
+//						cout<<"..............."<<endl;
+                                if((x >=-point_count_ogm_big_.ogmwidth / 2  && x <= point_count_ogm_big_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
+                                                (newy >=0 && newy < point_count_ogm_big_.ogmheight) &&
+                                                ( z <=  Z_MAX))
+                                {
+                                        int col = boost::math::round(x / point_count_ogm_big_.ogmresolution) + ( point_count_ogm_big_.ogmwidth_cell - 1 ) / 2;
+                                        int row = boost::math::round(newy / point_count_ogm_big_.ogmresolution) ;
 
 
 
 
 
-		            if((row >=0 && row < point_count_ogm_show_.ogmheight_cell)
-		                                  && (col >=0 && col < point_count_ogm_show_.ogmwidth_cell))
-		            {
-		            	int index = row * point_count_ogm_show_.ogmwidth_cell + col;
-		            	point_count_ogm_show_.ogm[index]++;
-		            }
-		            }
+                                        if((row >=0 && row < point_count_ogm_big_.ogmheight_cell)
+                                                        && (col >=0 && col < point_count_ogm_big_.ogmwidth_cell))
+                                        {
+                                                int index = row * point_count_ogm_big_.ogmwidth_cell + col;
+                                                point_count_ogm_big_.ogm[index]++;
+                                        }
+                                }
+                        }
 
 		}
-		cvNamedWindow("testwindow",0);
-		IplImage *slopemat = cvCreateImage(cvSize(point_count_ogm_show_.ogmwidth_cell,point_count_ogm_show_.ogmheight_cell),IPL_DEPTH_8U,1);
-		cvZero(slopemat);
-		int heightnum = point_count_ogm_show_.ogmheight_cell;
-		int widthnum = point_count_ogm_show_.ogmwidth_cell;
-		for(int j=0;j<point_count_ogm_show_.ogmheight_cell;j++)
-		{
-			unsigned char* pdata = (unsigned char*)(slopemat->imageData + (point_count_ogm_show_.ogmheight_cell - 1 - j)* slopemat->widthStep);
-			for(int i=0 ;i < point_count_ogm_show_.ogmwidth_cell ; i++)
-			{
-				unsigned char val = point_count_ogm_show_.ogm[i + j*point_count_ogm_show_.ogmwidth_cell];//val为每个栅格的点云数量
-				if(val > 0)
-				{
-					pdata[i]=abs(val*10);//以val×10作为像素值
 
-				}
-
-			}
-
-		}
-	    cvShowImage("testwindow",slopemat);
-	    cvWaitKey(10);
-	    cvReleaseImage(&slopemat);
-//	   		show smaller grids
 
 		//test
 //		for(int i=point_count_ogm_.ogmwidth_cell/2;i<point_count_ogm_.ogmwidth_cell/2+6/point_count_ogm_.ogmresolution;i++){
@@ -1261,255 +1620,604 @@
 //		}
 //		std::cout<<std::endl;
 		//下面将考虑通过检测比较大片的无点区域判断是否为悬崖zx
-		for(int i=20/point_count_ogm_.ogmresolution+3;i<45/point_count_ogm_.ogmresolution;i++)//
-		{
-//			std::cout<<"......11111111111111.................."<<std::endl;
-			int end_right=point_count_ogm_.ogmwidth_cell/2+16/point_count_ogm_.ogmresolution;
-			for(int j=point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j<end_right;j++)//车体右侧
-			{
+                //		1、首先检测小区域内有没有悬崖区域等。
+                                for(int i=10/point_count_ogm_.ogmresolution;i<30/point_count_ogm_.ogmresolution;i++)//
+                                {
+                                        float thresh;
+                                        if (i>15/point_count_ogm_.ogmresolution){thresh=GRID_THRESH;}
+                                        else {thresh=GRID_THRESH+3;}
+                //			std::cout<<"......11111111111111.................."<<std::endl;
+                                        int end_right=point_count_ogm_.ogmwidth_cell/2+16/point_count_ogm_.ogmresolution;
+                                        for(int j=point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j<end_right;j++)//车体右侧
+                                        {
 
-				int count=0;
-				int index=i*point_count_ogm_.ogmwidth_cell+j;
-															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<6&&count<end_right-j)//0221这里的10之前是16zx
-								{
-//									std::cout<<"......11111111111111.................."<<std::endl;
-									count++;
-									index++;
-								}
-//								int tempindex=index;
-//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-								index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
-								int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
-								int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
-								int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
-								if(count>GRID_THRESH)								//可调参数
-								{
-									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-									if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
-									else{
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*j-4;l<4*j;l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz1){
-													maxz1=maxz_ogm_.ogm[small_i];
-													if(abs(maxz1)>0.1) break;
-												}
-											}
-											if(abs(maxz1)>0.1) break;
-										}
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*(j+count);l<4*(j+count+1);l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz2){
-													maxz2=maxz_ogm_.ogm[small_i];
-													if(abs(maxz2)>0.1) break;
-												}
-											}
-											if(abs(maxz2)>0.1) break;
-										}
-										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-									}
-									if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
-									{
-//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
-										memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+                                                float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+                                                float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+                                                if((actual_x*actual_x+actual_y*actual_y)>RADIUS){
+                                                        continue;
+                                                }
+                                                int count=0;
+                                                int index=i*point_count_ogm_.ogmwidth_cell+j;
+                                                                                                                                        //用于记录连续没有点云的栅格数
+                                                float bound=0;
+                                                while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS)//0221这里的10之前是16zx
+                                                {
+                //									std::cout<<"................"<<count+i<<std::endl;
+                                                        count++;
+                                                        index++;
+                                                        bound=(j-20/point_count_ogm_.ogmresolution+count)*0.2*(j-20/point_count_ogm_.ogmresolution+count)*0.2+(i-20/point_count_ogm_.ogmresolution)*0.2
+                                                                        *(i-20/point_count_ogm_.ogmresolution)*0.2;
 
-//										for(int d=0;d<count;d++)
+                                                }
+                //								int tempindex=index;
+                //								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                                                index=i*ogm_msg_.ogmwidth_cell+j;//栅格地图上悬崖起始点索引
+                                                                                int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                if(count>thresh)								//可调参数
+                                                                                {
+                //									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+                //									if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
+                //									else{
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*j-4;l<4*j;l++){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz1){
+                //													maxz1=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz1)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz1)>0.1) break;
+                //										}
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*(j+count);l<4*(j+count+1);l++){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz2){
+                //													maxz2=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz2)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz2)>0.1) break;
+                //										}
+                //										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+                //									}
+
+                #ifdef SMALLGRID
+                                                                                        if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+                //									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+                #else
+                                                                                        if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+                #endif
+                                                                                                {
+                //										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
+                                                                                                memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+                //										for(int d=0;d<count;d++)
+                //										{
+                //											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+                //										}
+                //										std::cout<<"........................"<<std::endl;
+                                                                                                vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+                                                                                                vecright_.push_back(j);
+                                                                                                vecright_.push_back(count);
+
+                                                                                        }
+                                                                                }
+                                                                                if(count>0)
+                                                                                j+=count-1;
+                                        }
+
+                                        for(int j=point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j++)//车体左侧
+                                        {
+                                                float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+                                                float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+                                                if((actual_x*actual_x+actual_y*actual_y)>RADIUS)
+                                                {
+                                                        continue;
+                                                }
+                                                int count=0;
+                                                int index=i*point_count_ogm_.ogmwidth_cell+j;
+                                                                                                                                        //用于记录连续没有点云的栅格数
+                                                                                float bound=0;
+                                                                                while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS&&count<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j)//0221这里的10之前是16zx
+                                                                                {
+                //									std::cout<<"................"<<count+i<<std::endl;
+                                                                                        count++;
+                                                                                        index++;
+                                                                                        bound=(j-20/point_count_ogm_.ogmresolution+count)*0.2*(j-20/point_count_ogm_.ogmresolution+count)*0.2+(i-20/point_count_ogm_.ogmresolution)*0.2
+                                                                                                        *(i-20/point_count_ogm_.ogmresolution)*0.2;
+
+                                                                                }
+                                                                                int tempindex=index;
+                //								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                                                index=i*ogm_msg_.ogmwidth_cell+j;//栅格地图上悬崖起始点索引
+                                                                                int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                if(count>thresh)								//可调参数
+                                                                                {
+                //									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+                //									if(j==point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution){thresh_flat=-1;}
+                //									else{
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*j-1;l>4*j-5;l--){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz1){
+                //													maxz1=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz1)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz1)>0.1) break;
+                //										}
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*(j+count);l<4*(j+count+1);l++){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz2){
+                //													maxz2=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz2)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz2)>0.1) break;
+                //										}
+                //										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+                //									}
+                #ifdef SMALLGRID
+                                                                                        if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+                //									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+                #else
+                                                                                        if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+                #endif
+                                                                                        {
+                //										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
+                //										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
+                                                                                                memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+                //										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+                //										for(int d=0;d<count;d++)
+                //										{
+                //											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+                //										}
+                //										std::cout<<"........................"<<std::endl;
+                                                                                                vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+                                                                                                vecright_.push_back(j);
+                                                                                                vecright_.push_back(count);
+
+                                                                                        }
+                                                                                }
+                                                                                if(count>0)
+                                                                                        j+=count-1;
+
+
+                                        }
+                //
+                                }
+                                //test
+                //		for(int i=13;i<21;i++){
+                //			int index=35*point_count_ogm_.ogmwidth_cell+i;
+                //			int count=0;
+                //			while(point_count_ogm_.ogm[index]==0){
+                //				count++;
+                //				index++;
+                //			}
+                //			if(count>2){
+                //				if(pathClear(35,i)){
+                //					std::cout<<"yesyesyes"<<std::endl;
+                //				}
+                //				else cout<<"nonono"<<std::endl;
+                //			}
+                //		}
+                                //test done
+                                for(int j=point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j++)//车体上下范围
+                                {
+
+                //			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
+                //			{
+                //				int count=0;
+                //				//排除车体周围范围
+                //				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+                //						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+                //					continue;
+                //				int index=i*point_count_ogm_.ogmwidth_cell+j;
+                //				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
+                //				{
+                //					count++;
+                //					index+=point_count_ogm_.ogmwidth_cell;
+                //				}
+                //				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
+                ////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                //				if(count>GRID_THRESH)								//可调参数
+                //				{
+                //					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+                //					{
+                //						for(int k=0;k<count;k++)
+                //						{
+                //							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+                //							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+                ////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
+                ////							ogm_msg_.ogm[index]=5;;
+                ////							ogm_msg_.ogm[index+1]=5;
+                //							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
+                //						}
+                ////										std::cout<<"........................"<<std::endl;
+                //						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+                //						vecup_.push_back(j);
+                //						vecup_.push_back(count);
+                //
+                //					}
+                //				}
+                //				if(count>0) i+=count-1;
+                //
+                //			}
+                                        for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<50/point_count_ogm_.ogmresolution;i++)
+                                        {
+                                                float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
+                                                float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
+                                                if((actual_x*actual_x+actual_y*actual_y)>RADIUS)
+                                                {
+                                                        continue;
+                                                }
+                                                int thresh;
+                                                if(i<40/point_count_ogm_.ogmresolution) thresh=GRID_THRESH;
+                                                else if(i<50/point_count_ogm_.ogmresolution) thresh=GRID_THRESH2;
+                                                else thresh=GRID_THRESH3;
+                                                int count=0;
+                                                if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+                                                                &&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+                                                        continue;
+                                                int index=i*point_count_ogm_.ogmwidth_cell+j;
+                                                float bound=0;
+
+                                                while(point_count_ogm_.ogm[index]<POINT_COUNT_THRESH&&bound<RADIUS)//&&count<point_count_ogm_.ogmheight_cell-i
+                                                {
+                //					cout<<"the point count is  "<<i<<"  "<<j<<endl;
+                //					cout<<"the index is "<<index<<endl;
+                                                        bound=(j-20/point_count_ogm_.ogmresolution)*0.2*(j-20/point_count_ogm_.ogmresolution)*0.2+(i-20/point_count_ogm_.ogmresolution+count)*0.2
+                                                                        *(i-20/point_count_ogm_.ogmresolution+count)*0.2;
+
+                                                        count++;
+                                                        index+=point_count_ogm_.ogmwidth_cell;
+                                                }
+                //				cout<<"the count is "<<count<<endl;
+                                                //							index=i*point_count_ogm_.ogmwidth_cell+j;//复位zx
+                                                index=i*ogm_msg_.ogmwidth_cell+j;
+                                                //							int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                if(count>GRID_THRESH)								//可调参数
+                                                {
+                                                        if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+                                                        {
+                                                                for(int k=0;k<count;k++)
+                                                                {
+                                                                        ogm_msg_.ogm[index]=5;
+                                                                        index+=point_count_ogm_.ogmwidth_cell; //在图像和栅格坐标系下分别是+= 和-=
+
+
+                                                                }
+                //						std::cout<<"............jj is............"<<j<<std::endl;
+                                                                vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+                                                                vecup_.push_back(j);
+                                                                vecup_.push_back(count);
+
+                                                        }
+                                                }
+                                                if(count>0) i+=count-1;
+
+                                        }
+                                }
+                //		2、检测10m之外
+                //		2.1、左右两侧
+                                for(int i=30/point_count_ogm_big_.ogmresolution;i<41/point_count_ogm_big_.ogmresolution;i++)//
+                                {
+
+                //			std::cout<<"......11111111111111.................."<<std::endl;
+                                        float thresh;
+                                        if(i<40/point_count_ogm_big_.ogmresolution){thresh=GRID_THRESH_BIG;}
+                                        else{thresh=int(GRID_THRESH_BIG*1.5);}
+                                        int end_right=point_count_ogm_big_.ogmwidth_cell/2+20/point_count_ogm_big_.ogmresolution;
+                                        for(int j=point_count_ogm_big_.ogmwidth_cell/2+4/point_count_ogm_big_.ogmresolution;j<end_right;j++)//车体右侧
+                                        {
+
+                                                float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400)){
+                                                        continue;
+                                                }
+                                                int count=0;
+                                                int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+                                                                                                                                        //用于记录连续没有点云的栅格数
+                                                float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+                                                                *(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&bound<400)//0221这里的10之前是16zx
+                                                {
+                //									std::cout<<"................"<<count+i<<std::endl;
+                                                        count++;
+                                                        index++;
+                                                        bound=(j-20/point_count_ogm_big_.ogmresolution+count)*0.4*(j-20/point_count_ogm_big_.ogmresolution+count)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+                                                                        *(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+
+
+
+                                                }
+                //								int tempindex=index;
+                //								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                                                index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
+                                                                                int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                if(count>thresh)								//可调参数
+                                                                                {
+//											float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+//											if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
+//											else{
+//												for(int k=4*i;k<4*i+4;k++){
+//													for(int l=4*j-4;l<4*j;l++){
+//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+//														if(maxz_ogm_.ogm[small_i]>maxz1){
+//															maxz1=maxz_ogm_.ogm[small_i];
+//															if(abs(maxz1)>0.1) break;
+//														}
+//													}
+//													if(abs(maxz1)>0.1) break;
+//												}
+//												for(int k=4*i;k<4*i+4;k++){
+//													for(int l=4*(j+count);l<4*(j+count+1);l++){
+//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+//														if(maxz_ogm_.ogm[small_i]>maxz2){
+//															maxz2=maxz_ogm_.ogm[small_i];
+//															if(abs(maxz2)>0.1) break;
+//														}
+//													}
+//													if(abs(maxz2)>0.1) break;
+//												}
+//												thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+//											}
+
+                #ifdef SMALLGRID
+                //									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+                //									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+
+//											if((pathClear(4*i,j*4)&&pathClear((i)*4,4*(j+count/2)))&&pathClear((i)*4,4*(j+count))&&abs(maxz1-maxz2)>thresh_flat)	//判断一下由雷达到无点区域中点之间有无障碍
+                                                                                        bool state=false;
+                                                                                        for(int kk=0;kk<count;kk++){
+                                                                                                state=state||pathClear(2*i,2*(j+kk));
+
+                                                                                                if(state) {
+
+                                                                                                        break;
+                                                                                                }
+                                                                                        }
+//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+                                                                                        if(state)//
+                #endif
+                                                                                                {
+                //										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
+//												memset(&ogm_msg_.ogm[index],5,4*count*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+                //										for(int d=0;d<count;d++)
+                //										{
+                //											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+                //										}
+                //										std::cout<<"........................"<<std::endl;
+                                                                                                vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+                                                                                                vecright_big_.push_back(j);
+                                                                                                vecright_big_.push_back(count);
+
+                                                                                        }
+                                                                                }
+                                                                                if(count>0)
+                                                                                j+=count-1;
+                                        }
+
+                                        for(int j=point_count_ogm_big_.ogmwidth_cell/2-20/point_count_ogm_big_.ogmresolution;j<point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution;j++)//车体左侧
+                                        {
+                                                float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400)){
+                                                        continue;
+                                                }
+                                                int count=0;
+                                                int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+                                                                                                                                        //用于记录连续没有点云的栅格数
+
+                                                float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+                                                                *(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&count<point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution-j&&bound<400)//0221这里的10之前是16zx
+                                                {
+                //									std::cout<<"................"<<count+i<<std::endl;
+                                                        bound=(j-20/point_count_ogm_big_.ogmresolution+count)*0.4*(j-20/point_count_ogm_big_.ogmresolution+count)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+                                                                        *(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                        count++;
+                                                        index++;
+
+
+                                                }
+                                                                                int tempindex=index;
+                //								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                                                index=4*i*ogm_msg_.ogmwidth_cell+4*j;//栅格地图上悬崖起始点索引
+                                                                                int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
+                                                                                if(count>thresh)								//可调参数
+                                                                                {
+                //									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
+                //									if(j==point_count_ogm_big_.ogmwidth_cell/2-20/point_count_ogm_big_.ogmresolution){thresh_flat=-1;}
+                //									else{
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*j-1;l>4*j-5;l--){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz1){
+                //													maxz1=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz1)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz1)>0.1) break;
+                //										}
+                //										for(int k=4*i;k<4*i+4;k++){
+                //											for(int l=4*(j+count);l<4*(j+count+1);l++){
+                //												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
+                //												if(maxz_ogm_.ogm[small_i]>maxz2){
+                //													maxz2=maxz_ogm_.ogm[small_i];
+                //													if(abs(maxz2)>0.1) break;
+                //												}
+                //											}
+                //											if(abs(maxz2)>0.1) break;
+                //										}
+                //										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
+                //									}
+                #ifdef SMALLGRID
+                //									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
+                //									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
+                //#else
+//											if((pathClear(4*i,j*4)&&pathClear((i)*4,4*(j+count/2)))&&pathClear((i)*4,4*(j+count)))	//判断一下由雷达到无点区域中点之间有无障碍
+                                                                                        bool state=false;
+                                                                                        for(int kk=0;kk<count;kk++){
+                                                                                                state=state||pathClear(2*i,2*(j+kk));
+
+                                                                                                if(state) {
+
+                                                                                                        break;
+                                                                                                }
+                                                                                        }
+//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+                                                                                        if(state)//
+                #endif
+                                                                                        {
+                //										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
+                //										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
+//												memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+
+                //										for(int d=0;d<count;d++)
+                //										{
+                //											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+                //										}
+                //										std::cout<<"........................"<<std::endl;
+                                                                                                vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+                                                                                                vecright_big_.push_back(j);
+                                                                                                vecright_big_.push_back(count);
+
+                                                                                        }
+                                                                                }
+                                                                                if(count>0)
+                                                                                        j+=count-1;
+
+
+                                        }
+                //
+                                }
+                //		2.2上下侧
+                                for(int j=point_count_ogm_big_.ogmwidth_cell/2-4/point_count_ogm_big_.ogmresolution;j<point_count_ogm_big_.ogmwidth_cell/2+4/point_count_ogm_big_.ogmresolution;j++)//车体上下范围
+                                                {
+
+                                //			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
+                                //			{
+                                //				int count=0;
+                                //				//排除车体周围范围
+                                //				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
+                                //						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+                                //					continue;
+                                //				int index=i*point_count_ogm_.ogmwidth_cell+j;
+                                //				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
+                                //				{
+                                //					count++;
+                                //					index+=point_count_ogm_.ogmwidth_cell;
+                                //				}
+                                //				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
+                                ////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                //				if(count>GRID_THRESH)								//可调参数
+                                //				{
+                                //					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+                                //					{
+                                //						for(int k=0;k<count;k++)
+                                //						{
+                                //							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+                                //							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+                                ////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
+                                ////							ogm_msg_.ogm[index]=5;;
+                                ////							ogm_msg_.ogm[index+1]=5;
+                                //							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
+                                //						}
+                                ////										std::cout<<"........................"<<std::endl;
+                                //						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+                                //						vecup_.push_back(j);
+                                //						vecup_.push_back(count);
+                                //
+                                //					}
+                                //				}
+                                //				if(count>0) i+=count-1;
+                                //
+                                //			}
+                                                        for(int i=30/point_count_ogm_big_.ogmresolution;i<50/point_count_ogm_big_.ogmresolution;i++)
+                                                        {
+                                                                float actual_x=(j-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                                float actual_y=(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+//								if((actual_x*actual_x+actual_y*actual_y)<RADIUS||((actual_x*actual_x+actual_y*actual_y)>400))
+//								{
+//									continue;
+//								}
+                                                                int thresh;
+                                                                if(i<40/point_count_ogm_big_.ogmresolution) thresh=GRID_THRESH_BIG;
+//								else if(i<50/point_count_ogm_big_.ogmresolution) thresh=GRID_THRESH_BIG;
+//								else thresh=GRID_THRESH3;
+                                                                int count=0;
+                                                                if(j>point_count_ogm_big_.ogmwidth_cell/2-3/point_count_ogm_big_.ogmresolution&&j<point_count_ogm_big_.ogmwidth_cell/2+3/point_count_ogm_big_.ogmresolution
+                                                                                &&i<point_count_ogm_big_.ogmheight_cell/2+2/point_count_ogm_big_.ogmresolution&&i>point_count_ogm_big_.ogmheight_cell/2-4/point_count_ogm_big_.ogmresolution)
+                                                                        continue;
+                                                                int index=i*point_count_ogm_big_.ogmwidth_cell+j;
+                //						float bound=0;
+                                                                if(j==92||j==93||j==94){
+
+                                                                }
+                                                                float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
+                                                                                *(i-20/point_count_ogm_big_.ogmresolution)*0.4;
+                                                                while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&count<50/point_count_ogm_big_.ogmresolution-i)//
+                                                                {
+                                //					cout<<"the point count is  "<<i<<"  "<<j<<endl;
+                                //					cout<<"the index is "<<index<<endl;
+                                                                        bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution+count)*0.4
+                                                                                        *(i-20/point_count_ogm_big_.ogmresolution+count)*0.4;
+
+                                                                        count++;
+                                                                        index+=point_count_ogm_big_.ogmwidth_cell;
+                                                                }
+                                //				cout<<"the count is "<<count<<endl;
+                                                                //							index=i*point_count_ogm_big_.ogmwidth_cell+j;//复位zx
+                                                                index=4*i*ogm_msg_.ogmwidth_cell+j*4;
+                                                                //							int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
+                                                                if(count>thresh)								//可调参数
+                                                                {
+//									if(pathClear(4*i,4*j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
+                                                                        if(pathClear(2*i,2*j))
+                                                                        {
+//										for(int k=0;k<count;k++)
 //										{
-//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+//											memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+//											index+=4*ogm_msg_.ogmwidth_cell;
 //										}
-//										std::cout<<"........................"<<std::endl;
-										vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-										vecright_.push_back(j);
-										vecright_.push_back(count);
+                                //						std::cout<<"............jj is............"<<j<<std::endl;
+                                                                                vecup_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+                                                                                vecup_big_.push_back(j);
+                                                                                vecup_big_.push_back(count);
 
-									}
-								}
-								if(count>0)
-								j+=count-1;
-			}
+                                                                        }
+                                                                }
+                                                                if(count>0) i+=count-1;
 
-			for(int j=point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j++)//车体左侧
-			{
-
-				int count=0;
-				int index=i*point_count_ogm_.ogmwidth_cell+j;
-															//用于记录连续没有点云的栅格数
-								while(point_count_ogm_.ogm[index]<6&&count<(point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution-j))//0221这里的10之前是16zx
-								{
-//									std::cout<<"................"<<count+i<<std::endl;
-									count++;
-									index++;
-
-								}
-								int tempindex=index;
-//								int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-								index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
-								int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
-								int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
-								int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
-								if(count>GRID_THRESH)								//可调参数
-								{
-									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-									if(j==point_count_ogm_.ogmwidth_cell/2-20/point_count_ogm_.ogmresolution){thresh_flat=-1;}
-									else{
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*j-1;l>4*j-5;l--){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz1){
-													maxz1=maxz_ogm_.ogm[small_i];
-													if(abs(maxz1)>0.1) break;
-												}
-											}
-											if(abs(maxz1)>0.1) break;
-										}
-										for(int k=4*i;k<4*i+4;k++){
-											for(int l=4*(j+count);l<4*(j+count+1);l++){
-												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-												if(maxz_ogm_.ogm[small_i]>maxz2){
-													maxz2=maxz_ogm_.ogm[small_i];
-													if(abs(maxz2)>0.1) break;
-												}
-											}
-											if(abs(maxz2)>0.1) break;
-										}
-										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-									}
-									if((pathClear(4*i,j*4)&&pathClear((i+count/2)*4,4*j))&&pathClear((i+count)*4+3,4*j)&&abs(maxz1-maxz2)>thresh_flat)	//&&abs(maxz1-maxz2)>thresh_flat
-									{
-//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
-//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
-										memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
-//										for(int d=0;d<count;d++)
-//										{
-//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-//										}
-//										std::cout<<"........................"<<std::endl;
-										vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-										vecright_.push_back(j);
-										vecright_.push_back(count);
-
-									}
-								}
-								if(count>0)
-									j+=count-1;
-
-
-			}
-//
-		}
-		//test
-//		for(int i=13;i<21;i++){
-//			int index=35*point_count_ogm_.ogmwidth_cell+i;
-//			int count=0;
-//			while(point_count_ogm_.ogm[index]==0){
-//				count++;
-//				index++;
-//			}
-//			if(count>2){
-//				if(pathClear(35,i)){
-//					std::cout<<"yesyesyes"<<std::endl;
-//				}
-//				else cout<<"nonono"<<std::endl;
-//			}
-//		}
-		//test done
-		for(int j=point_count_ogm_.ogmwidth_cell/2-4/point_count_ogm_.ogmresolution;j<point_count_ogm_.ogmwidth_cell/2+4/point_count_ogm_.ogmresolution;j++)//车体上下范围
-		{
-
-//			for(int i=0;i<20/point_count_ogm_.ogmresolution;i++)//-3/point_count_ogm_.ogmresolution
-//			{
-//				int count=0;
-//				//排除车体周围范围
-//				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
-//						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
-//					continue;
-//				int index=i*point_count_ogm_.ogmwidth_cell+j;
-//				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
-//				{
-//					count++;
-//					index+=point_count_ogm_.ogmwidth_cell;
-//				}
-//				index=i*2*ogm_msg_.ogmwidth_cell+j*2;//这是在栅格坐标系下的索引zx
-////				int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-//				if(count>GRID_THRESH)								//可调参数
-//				{
-//					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
-//					{
-//						for(int k=0;k<count;k++)
-//						{
-//							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
-//							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
-////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
-////							ogm_msg_.ogm[index]=5;;
-////							ogm_msg_.ogm[index+1]=5;
-//							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
-//						}
-////										std::cout<<"........................"<<std::endl;
-//						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-//						vecup_.push_back(j);
-//						vecup_.push_back(count);
-//
-//					}
-//				}
-//				if(count>0) i+=count-1;
-//
-//			}
-			for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<50/point_count_ogm_.ogmresolution;i++)
-						{
-							int thresh;
-							if(i<45) thresh=GRID_THRESH;
-							else if(i<55) thresh=GRID_THRESH2;
-							else thresh=GRID_THRESH3;
-							int count=0;
-							if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
-									&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
-								continue;
-							int index=i*point_count_ogm_.ogmwidth_cell+j;
-							while(point_count_ogm_.ogm[index]==0&&count<6&&count<50/point_count_ogm_.ogmresolution-i)//&&count<point_count_ogm_.ogmheight_cell-i
-							{
-								count++;
-								index+=point_count_ogm_.ogmwidth_cell;
-							}
-//							index=i*point_count_ogm_.ogmwidth_cell+j;//复位zx
-							index=i*4*ogm_msg_.ogmwidth_cell+j*4;
-//							int index_img=(point_count_ogm_.ogmheight_cell-i-1)*point_count_ogm_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-							if(count>thresh)								//可调参数
-							{
-								if(pathClear(4*i,4*j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
-								{
-									for(int k=0;k<count;k++)
-									{
-//										ogm_msg_.ogm[index]=1;
-//										index+=point_count_ogm_.ogmwidth_cell; //在图像和栅格坐标系下分别是+= 和-=
-										memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-										memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-//										std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
-										//							ogm_msg_.ogm[index]=5;;
-										//							ogm_msg_.ogm[index+1]=5;
-										index+=4*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
-									}
-			//										std::cout<<"........................"<<std::endl;
-									vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-									vecup_.push_back(j);
-									vecup_.push_back(count);
-
-								}
-							}
-							if(count>0) i+=count-1;
-
-						}
-		}
-
+                                                        }
+                                                }
 
 	}
 	bool  PostProcess::pathClear(int height,int width)
@@ -1678,7 +2386,28 @@
 			}
 
 		}
+
+//		cvCircle(slopemat,cvPoint(20/ogmdata.ogmresolution,ogmdata.ogmheight_cell-20/ogmdata.ogmresolution-1),50,cvScalar(255,0,0));
 ////test
+//		int height=20/ogmdata.ogmresolution;
+//		int width=20/ogmdata.ogmresolution;
+//		for(int j=0;j<ogmdata.ogmheight_cell;j++)
+//		{
+//			unsigned char* pdata = (unsigned char*)(slopemat->imageData + (ogmdata.ogmheight_cell - 1 - j)* slopemat->widthStep);
+//			for(int i=0 ;i < ogmdata.ogmwidth_cell ; i++)
+//			{
+//				float r=(i-height)*0.2*(i-height)*0.2+(j-width)*0.2*(j-width)*0.2;
+//				unsigned char val = ogmdata.ogm[i + j*ogmdata.ogmwidth_cell];//val为每个栅格的点云数量
+//				if(r<100)
+//				{
+//					pdata[i]=255;//以val×10作为像素值
+//
+//				}
+//
+//			}
+//
+//		}
+
 //		for(int i=0;i<6;i++){
 //			cvLine(slopemat,cvPoint(0,63-i*10),cvPoint(50,63-i*10),cvScalar(255));
 //		}
@@ -1686,29 +2415,29 @@
 //			cvRectangle(slopemat,cvPoint(30,30),cvPoint(35,35),cvScalar(255));
 //		矩形
 //		cvLine(slopemat,cvPoint(0,87-45),cvPoint(50,87-45),cvScalar(255));
-			int height0=25,width0=25;
-			int height=64,width=15;
-//			cvLine(slopemat,cvPoint(width0,height0),cvPoint(width,height),cvScalar(255));
-			float k=(float)(height-height0)/(width-width0);
-			float d=-0.5;
-			while(height>height0)
-			{
-				unsigned char* pdata = (unsigned char*)(slopemat->imageData + (87-height0-1)* slopemat->widthStep);
-				pdata[width0]=255;
-//				if(maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0]>PATHTHRESH||maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0+1]>PATHTHRESH||maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0-1]>PATHTHRESH){
-//					return false;}
-				height0++;
-				d-=1/k;
-				if(d>0){width0--;d-=1;}
-
-			}
+//			int height0=25,width0=25;
+//			int height=64,width=15;
+////			cvLine(slopemat,cvPoint(width0,height0),cvPoint(width,height),cvScalar(255));
+//			float k=(float)(height-height0)/(width-width0);
+//			float d=-0.5;
+//			while(height>height0)
+//			{
+//				unsigned char* pdata = (unsigned char*)(slopemat->imageData + (87-height0-1)* slopemat->widthStep);
+//				pdata[width0]=255;
+////				if(maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0]>PATHTHRESH||maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0+1]>PATHTHRESH||maxz_ogm_.ogm[height0*maxz_ogm_.ogmwidth_cell+width0-1]>PATHTHRESH){
+////					return false;}
+//				height0++;
+//				d-=1/k;
+//				if(d>0){width0--;d-=1;}
+//
+//			}
 ////test done
 //			std::cout<<ogmdata.ogmwidth_cell/2<<std::endl;
     		cvLine(slopemat,cvPoint(0,ogmdata.ogmheight_cell-1-20/ogmdata.ogmresolution),cvPoint(ogmdata.ogmwidth_cell,ogmdata.ogmheight_cell-1-20/ogmdata.ogmresolution),cvScalar(255));
 	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2,0),cvPoint(ogmdata.ogmwidth_cell/2,ogmdata.ogmheight_cell),cvScalar(255));
 
-	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2-4/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2-4/ogmdata.ogmresolution,170),cvScalar(255));
-	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2+4/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2+4/ogmdata.ogmresolution,170),cvScalar(255));
+	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2-4/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2-4/ogmdata.ogmresolution,70/ogmdata.ogmresolution),cvScalar(255));
+	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2+4/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2+4/ogmdata.ogmresolution,70/ogmdata.ogmresolution),cvScalar(255));
 //	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2+3/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2+3/ogmdata.ogmresolution,99),cvScalar(255));
 //	    	cvLine(slopemat,cvPoint(ogmdata.ogmwidth_cell/2-3/ogmdata.ogmresolution,0),cvPoint(ogmdata.ogmwidth_cell/2-3/ogmdata.ogmresolution,99),cvScalar(255));
 //	    	cvLine(slopemat,cvPoint(0,ogmdata.ogmwidth_cell/2+6/ogmdata.ogmresolution),cvPoint(99,ogmdata.ogmwidth_cell/2+6/ogmdata.ogmresolution),cvScalar(255));
@@ -1723,7 +2452,7 @@
 	    for(int i=0;i<vecupdown.size();)
 	    {
 //	    	std::cout<<".............................."<<std::endl;
-	    	cvLine(slopemat,cvPoint(vecupdown[i+1],vecupdown[i]),cvPoint(vecupdown[i+1],vecupdown[i]+vecupdown[i+2]),cvScalar(255));
+	    	cvLine(slopemat,cvPoint(vecupdown[i+1],vecupdown[i]),cvPoint(vecupdown[i+1],vecupdown[i]-vecupdown[i+2]),cvScalar(255));
 	    	i+=3;
 	    }
 
@@ -1964,13 +2693,13 @@
 			memset( cloud_name, 0 , 50);
 			sprintf( cloud_name, "passablecloud");
 			ShowViewerCloudPoints(cloud_viewer_, tempcloud,
-					cloud_name, 0, 0, 255);
+					cloud_name, 0,255, 0);
 			cloud_viewer_->spinOnce();
 //			analysisCloud(tempcloud,outputclouds,lidarpropertys);
 
 //			对齐时间戳 拼接点云
 #ifdef FUSE
-			if(lworldclouds_.size()>=2)
+			if(lworldclouds_.size()>=5)
 				lworldclouds_.pop_front();
 			vtotalcloud_.clear();
 			vtotalcloud_.push_back(tempcloud);//将当前点云赋给totalcloud_
@@ -2017,15 +2746,21 @@
 					memset( cloud_name, 0 , 50);
 					sprintf( cloud_name, "passablecloud");
 					ShowViewerCloudPoints(cloud_viewer_, vtotalcloud_,
-							cloud_name, 0, 0, 255);
+							cloud_name, 255, 0, 0);
 					cloud_viewer_->spinOnce();
 				}
 //				MyTime mytime;
 //				mytime.start();
+//				cout<<"dddddddddddddddddddd"<<endl;
 				countogmpoints(vtotalcloud_);
+//				cout<<"dddddddddddddddddddd"<<endl;
 				showOGM("grid",point_count_ogm_,vecright_,vecup_);
+
+				showOGM("biggrid",point_count_ogm_big_,vecright_big_,vecup_big_);
 				vecright_.clear();							//TODO:检测下size
 				vecup_.clear();
+				vecright_big_.clear();
+				vecup_big_.clear();
 //				mytime.show_s();
 			}
 
@@ -2052,8 +2787,8 @@
                                 char cloud_name[50];
                                 memset( cloud_name, 0 , 50);
                                 sprintf( cloud_name, "passablecloud");
-                                ShowViewerCloudPoints(cloud_viewer_, tempcloud,
-                                                      cloud_name, 0, 0, 255);
+//                                ShowViewerCloudPoints(cloud_viewer_, tempcloud,
+//                                                      cloud_name, 255, 0, 0);
 
 
 
@@ -2065,17 +2800,19 @@
                                 //		                    sprintf( stiff_name, "stiffcloud");
                                 //				            ShowViewerCloudPoints(cloud_viewer_, stiffcloud_,
                                 //				            stiff_name, 255, 0, 0);
-                                MyTime mytime;
-                                mytime.start();
+//                                MyTime mytime;
+//                                mytime.start();
                                 countogmpoints(tempcloud);
                                 showOGM("grid",point_count_ogm_,vecright_,vecup_);
+                                showOGM("biggrid",point_count_ogm_big_,vecright_big_,vecup_big_);
                                 vecright_.clear();							//TODO:检测下size
                                 vecup_.clear();
+                                vecright_big_.clear();
+                                vecup_.clear();
 
+//                                cloud_viewer_->spinOnce();//这个一定记得取消注释
 
-                                cloud_viewer_->spinOnce();//这个一定记得取消注释
-
-                                mytime.show_s ();
+//                                mytime.show_s ();
 
                             }
 			}

@@ -1,0 +1,22 @@
+# ninja log v5
+1	2683	1524838333388546135	CMakeFiles/extractroad.dir/src/CalPredictPoint.cc.o	f029693b4408dd6b
+11987	13051	1524838343752172975	/home/zx/CODE/ws0214/devel_isolated/extractroad/lib/extractroad/extractroad	874de61fcc063144
+1	11987	1524838342692211159	CMakeFiles/extractroad.dir/src/extractmain.cc.o	475f492f5fd51ace
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+3	13	0	CMakeFiles/install.util	edbd7e4a299c20d8
+0	2	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+1	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+3	13	0	CMakeFiles/install.util	edbd7e4a299c20d8
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+0	2	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+2	12	0	CMakeFiles/install.util	edbd7e4a299c20d8
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+1	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+3	12	0	CMakeFiles/install.util	edbd7e4a299c20d8
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+1	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+3	12	0	CMakeFiles/install.util	edbd7e4a299c20d8
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+0	3	0	CMakeFiles/extractroad_detect_changes	2e3cba396b34a8dd
+3	11	0	CMakeFiles/install.util	edbd7e4a299c20d8

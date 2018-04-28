@@ -1,0 +1,2 @@
+extractroad:iv_slam_ros_msgs:ivcommon:negative:sensor_driver/sensor_driver:sensor_driver/sensor_driver_msgs:slopeogm:stiff/stiff:stiff/sub_test
+-G Ninja -DCATKIN_DEVEL_PREFIX=/home/zx/CODE/ws0214/devel_isolated -DCMAKE_INSTALL_PREFIX=/home/zx/CODE/ws0214/install_isolated

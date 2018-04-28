@@ -78,12 +78,12 @@ LidarProcess::~LidarProcess()
         delete [] minintensity_ogm;
 //        delete [] cloudsections ;
         cvReleaseImage(&intensityogm_img);
-        if(thread_displayPointCloud)
-        {
-            thread_displayPointCloud->join();  //timed_join(boost::posix_time::seconds(1));
-            delete thread_displayPointCloud;
-            thread_displayPointCloud = NULL;
-        }
+//        if(thread_displayPointCloud)
+//        {
+//            thread_displayPointCloud->join();  //timed_join(boost::posix_time::seconds(1));
+//            delete thread_displayPointCloud;
+//            thread_displayPointCloud = NULL;
+//        }
         cloud_connection_H.disconnect ();
 
         std::cout<<"~hdlviewer"<<std::endl;
@@ -150,16 +150,14 @@ void LidarProcess::initHDL()
     if(isinited)
         return;
     isinited=true;
-
     boost::function<void (const pcl::PointCloud<pcl::PointXYZI>::ConstPtr&)> cloud_cb_H;
     if(fpointcloud_cb_!=NULL)
       cloud_cb_H=*fpointcloud_cb_;
     else
      cloud_cb_H = boost::bind(&LidarProcess::cloud_callback_H, this, _1);
-    cloud_connection_H = grabber_H_.registerCallback(cloud_cb_H);
+//    cloud_connection_H = grabber_H_.registerCallback(cloud_cb_H);
 
-
-    grabber_H_.start ();
+//    grabber_H_.start ();
 
 //    cloudsections = new CloudPointSections[LASER_LAYER] ;
 
@@ -243,8 +241,8 @@ void LidarProcess::initHDL()
 
     if(display_)
     {
-        boost::function0<void> fdisplay = boost::bind(&LidarProcess::displayPointCloud,this);
-        thread_displayPointCloud=new boost::thread(fdisplay);
+//        boost::function0<void> fdisplay = boost::bind(&LidarProcess::displayPointCloud,this);
+//        thread_displayPointCloud=new boost::thread(fdisplay);
     }
 #ifdef USE_OMP
     omp_init_lock(&omplock);
@@ -255,35 +253,35 @@ void LidarProcess::initHDL()
     flag_circletangential=false;
     flag_circleradius=false;
 
-    if(!xmlconfig_.GetModuleParam("flag_ogmdetection",flag_ogmdetection))
-    {
-        std::cerr<<"no flag_ogmdetection!"<<std::endl;
-        return ;
-    };
-
-    if(!xmlconfig_.GetModuleParam("flag_diffdetection",flag_diffdetection))
-    {
-        std::cerr<<"no flag_diffdetection!"<<std::endl;
-        return ;
-    };
-
-    if(!xmlconfig_.GetModuleParam("flag_circletangential",flag_circletangential))
-    {
-        std::cerr<<"no flag_circletangential!"<<std::endl;
-        return ;
-    };
-
-    if(!xmlconfig_.GetModuleParam("flag_circleradius",flag_circleradius))
-    {
-        std::cerr<<"no flag_circleradius!"<<std::endl;
-        return ;
-    };
-
-    if(!xmlconfig_.GetModuleParam("layernum",LASER_LAYER))
-    {
-        std::cerr<<"no layernum!"<<std::endl;
-        return ;
-    };
+//    if(!xmlconfig_.GetModuleParam("flag_ogmdetection",flag_ogmdetection))
+//    {
+//        std::cerr<<"no flag_ogmdetection!"<<std::endl;
+//        return ;
+//    };
+//
+//    if(!xmlconfig_.GetModuleParam("flag_diffdetection",flag_diffdetection))
+//    {
+//        std::cerr<<"no flag_diffdetection!"<<std::endl;
+//        return ;
+//    };
+//
+//    if(!xmlconfig_.GetModuleParam("flag_circletangential",flag_circletangential))
+//    {
+//        std::cerr<<"no flag_circletangential!"<<std::endl;
+//        return ;
+//    };
+//
+//    if(!xmlconfig_.GetModuleParam("flag_circleradius",flag_circleradius))
+//    {
+//        std::cerr<<"no flag_circleradius!"<<std::endl;
+//        return ;
+//    };
+//
+//    if(!xmlconfig_.GetModuleParam("layernum",LASER_LAYER))
+//    {
+//        std::cerr<<"no layernum!"<<std::endl;
+//        return ;
+//    };
 
     /*
 #if LASER_LAYER == 64
@@ -317,252 +315,67 @@ float laserverticalangle[LASER_LAYER] = {
 
 }
 
-void LidarProcess::displayPointCloud()
+void LidarProcess::displayPointCloud(Cloud& pointcloud)
 {
-    boost::shared_ptr<PCLVisualizer> cloud_viewer_(new PCLVisualizer ("HDL Cloud"));
+	boost::shared_ptr<PCLVisualizer> cloud_viewer_negative(new PCLVisualizer ("HDL Cloud"));
+	cloud_viewer_negative->addCoordinateSystem (3.0);
+	cloud_viewer_negative->setBackgroundColor (0, 0, 0);
+	cloud_viewer_negative->initCameraParameters ();
+	cloud_viewer_negative->setCameraPosition (0.0, 0.0, 30.0, 0.0, 1.0, 0.0, 0);
+	cloud_viewer_negative->setCameraClipDistances (0.0, 100.0);
+	Cloud::Ptr passableCloud(new Cloud);//
+	Cloud::Ptr negativeCloud(new Cloud);//
+	passableCloud->clear();
+	negativeCloud->clear();
 
-    cloud_viewer_->addCoordinateSystem (3.0);
-    cloud_viewer_->setBackgroundColor (0, 0, 0);
-    cloud_viewer_->initCameraParameters ();
-    cloud_viewer_->setCameraPosition (0.0, 0.0, 30.0, 0.0, 1.0, 0.0, 0);
-    cloud_viewer_->setCameraClipDistances (0.0, 100.0);
-    cloud_viewer_->registerKeyboardCallback (&LidarProcess::keyboard_callback, *this);
-    {
-        //画车身
-        float x1 = -1 , x2 = 1 , y1 = -1 , y2 = 3, z = 0;
-        float newx1, newx2, newy1, newy2, newz;
-        coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
-        coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
-        pcl::PointXYZI pt1, pt2, pt3, pt4;
-        pt1.x = newx1 ;
-        pt1.y = newy1 ;
-        pt1.z = newz;
-        pt2.x = newx1 ;
-        pt2.y = newy2 ;
-        pt2.z = newz;
-        cloud_viewer_->addLine(pt1, pt2, "body1");
-
-        pt1.x = newx2 ;
-        pt1.y = newy2 ;
-        pt1.z = newz;
-        cloud_viewer_->addLine(pt1, pt2, "body2");
-
-        pt2.x = newx2 ;
-        pt2.y = newy1 ;
-        pt2.z = newz;
-        cloud_viewer_->addLine(pt1, pt2, "body3");
-
-        pt1.x = newx1 ;
-        pt1.y = newy1 ;
-        pt1.z = newz;
-        cloud_viewer_->addLine(pt1, pt2, "body4");
-
-
-
-        //画上范围
-        if(0)
-        {
-            float x1 = -20 , x2 = 20 , y1 = -1 , y2 = 40, z = Z_MAX;
-            float newx1, newx2, newy1, newy2, newz;
-            coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
-            coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
-            pcl::PointXYZI pt1, pt2, pt3, pt4;
-            pt1.x = newx1 ;
-            pt1.y = newy1 ;
-            pt1.z = newz;
-            pt2.x = newx1 ;
-            pt2.y = newy2 ;
-            pt2.z = newz;
-            cloud_viewer_->addLine(pt1, pt2, "upper1");
-
-            pt1.x = newx2 ;
-            pt1.y = newy2 ;
-            pt1.z = newz;
-            cloud_viewer_->addLine(pt1, pt2, "upper2");
-
-            pt2.x = newx2 ;
-            pt2.y = newy1 ;
-            pt2.z = newz;
-            cloud_viewer_->addLine(pt1, pt2, "upper3");
-
-            pt1.x = newx1 ;
-            pt1.y = newy1 ;
-            pt1.z = newz;
-            cloud_viewer_->addLine(pt1, pt2, "upper4");
-        }
-
-        //画网格线
-        char linename[20];
-        for(int i = 0 ; i < 10 ; i++)
-        {
-            x1 = -20 ;
-            x2 = 20 ;
-            y1 = (i - 2) * 10 ;
-            y2 = (i - 2) * 10;
-            z = 0;
-            coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
-            coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
-            pt1.x = min(newx1 , newx2) ;
-            pt1.y = min(newy1 , newy2) ;
-            pt1.z = newz;
-            pt2.x = max(newx1 , newx2) ;
-            pt2.y = max(newy1 , newy2) ;
-            pt2.z = newz;
-            memset(linename, 0 , 20);
-            sprintf(linename , "lat%02d" , i);
-            cloud_viewer_->addLine(pt1, pt2, linename);
-        }
-
-        for(int i = 0 ; i < 5 ; i++)
-        {
-            x1 = i * 10 - 20;
-            x2 = i * 10 - 20;
-            y1 = -20 ;
-            y2 = 70 ;
-            z = 0;
-            coordinate_from_vehicle_to_velodyne(x1,y1,z,newx1,newy1,newz);
-            coordinate_from_vehicle_to_velodyne(x2,y2,z,newx2,newy2,newz);
-            pt1.x = min(newx1 , newx2) ;
-            pt1.y = min(newy1 , newy2) ;
-            pt1.z = newz;
-            pt2.x = max(newx1 , newx2) ;
-            pt2.y = max(newy1 , newy2) ;
-            pt2.z = newz;
-            memset(linename, 0 , 20);
-            sprintf(linename , "lng%02d" , i);
-            cloud_viewer_->addLine(pt1, pt2, linename);
-        }
-    }
-
-    while (!cloud_viewer_->wasStopped ()&&!flag_close)
-    {
-        if(display_ == 1)
-        {
-            if(freeze_==1&&replay_==1)
-                cloud_viewer_->spinOnce();
-            else
-            {
-                //display
-                // if(velodyne_pointcloud->points.size()>0)
-                if(pointcloud_updateflag)
-                {
-
-                    pointcloud_updateflag=false;
-                    boost::mutex::scoped_lock lock(displaymutex);
-
-                    cloud_viewer_->removeAllPointClouds();
-                    //��ͨ������
-                    if(passablecloud->points.size()>0)
-                    {
-                        //��ɫ
-
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> passablecloudHandler (passablecloud, 0, 255, 0);
-                        if (!cloud_viewer_->updatePointCloud (passablecloud, passablecloudHandler, "passablecloud")){
-                            cloud_viewer_->addPointCloud (passablecloud, passablecloudHandler, "passablecloud");
-                        }
-                    }
-
-                    if(rigid_nopassablecloud->points.size()>0)
-                    {
-                        //��
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> rigid_nopassablecloudHandler (rigid_nopassablecloud, 255, 0, 0);
-                        if (!cloud_viewer_->updatePointCloud (rigid_nopassablecloud, rigid_nopassablecloudHandler, "rigid_nopassablecloud")){
-                            cloud_viewer_->addPointCloud (rigid_nopassablecloud, rigid_nopassablecloudHandler, "rigid_nopassablecloud");
-                        }
-                    }
-
-                    //positive cloud
-                    if(positiveslopecloud->points.size()>0)
-                    {
-                        //��
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> positiveslopecloudHandler (positiveslopecloud, 0, 0, 255);
-                        if (!cloud_viewer_->updatePointCloud (positiveslopecloud, positiveslopecloudHandler, "positiveslopecloud")){
-                            cloud_viewer_->addPointCloud (positiveslopecloud, positiveslopecloudHandler, "positiveslopecloud");
-                        }
-                    }
-
-                    //negative cloud
-                    if(negativeslopecloud->points.size()>0)
-                    {
-                        //��
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> negativeslopecloudHandler (negativeslopecloud, 0, 0, 122);
-                        if (!cloud_viewer_->updatePointCloud (negativeslopecloud, negativeslopecloudHandler, "negativeslopecloud")){
-                            cloud_viewer_->addPointCloud (negativeslopecloud, negativeslopecloudHandler, "negativeslopecloud");
-
-                        }
-                    }
-
-
-                    //boundary cloud
-                    if(boundarycloud->points.size()>0)
-                    {
-                        //��
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> boundarycloudHandler (boundarycloud, 255, 255, 255);
-                        if (!cloud_viewer_->updatePointCloud (boundarycloud, boundarycloudHandler, "boundarycloud")){
-                            cloud_viewer_->addPointCloud (boundarycloud, boundarycloudHandler, "boundarycloud");
-                            cloud_viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "boundarycloud");
-                        }
-                    }
-
-                    //roadorientation cloud
-                    if(roadorientationcloud->points.size()>0)
-                    {
-                        //��
-                        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> roadorientationcloudHandler (roadorientationcloud, 255, 255, 0);
-                        if (!cloud_viewer_->updatePointCloud (roadorientationcloud, roadorientationcloudHandler, "roadorientationcloud")){
-                            cloud_viewer_->addPointCloud (roadorientationcloud, roadorientationcloudHandler, "roadorientationcloud");
-                            cloud_viewer_->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "roadorientationcloud");
-                        }
-                    }
-
-                    /*
-                    //悬崖
-                    if(stiff_pointcloud->points.size()>0)
-                    {
-                    //灰
-                    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> cliffcloudHandler (stiff_pointcloud, 150, 150, 150);
-                    if (!cloud_viewer_->updatePointCloud (stiff_pointcloud, cliffcloudHandler, "cloud_vehicle_hdl_cliff")){
-                    cloud_viewer_->addPointCloud (stiff_pointcloud, cliffcloudHandler, "cloud_vehicle_hdl_cliff");
-                    }
-                    }
-                     */
-                    //       if(velodyne_pointcloud)
-                    cloud_viewer_->spinOnce();
-
-
-
-                }
-                if (!grabber_H_.isRunning())
-                    cloud_viewer_->spin ();
-
-
-                ////��ʾ********************/
-
-#ifdef SIMULATION
-                boost::this_thread::sleep (boost::posix_time::microseconds (50000));
-#else
-                boost::this_thread::sleep (boost::posix_time::microseconds (100));
-#endif
-            }
-        }
-    }
-    //    if (replay_ == 1)
-    //        grabber_H_.resume();
-
-    flag_close=true;
-    cloud_viewer_->close();
+	while(!cloud_viewer_negative->wasStopped())
+{
+	cloud_mutex_.lock();
+	for(int i = 0;i < pointcloud.points.size();i++)
+	{
+		if(pointcloud.points[i].passibility < 0.1)
+			negativeCloud->points.push_back(pointcloud.points[i]);
+		else
+			passableCloud->points.push_back(pointcloud.points[i]);
+	}
+	cloud_mutex_.unlock();
+		cloud_viewer_negative->removeAllPointClouds();
+		if(pointcloud.points.size()>0)
+		{
+			if(passableCloud->points.size()>0)
+			{
+				pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> passableCloudHandler (passableCloud, 0, 255, 0);
+				if (!cloud_viewer_negative->updatePointCloud (passableCloud, passableCloudHandler, "passableCloud"))
+				{
+					cloud_viewer_negative->addPointCloud (passableCloud, passableCloudHandler, "passableCloud");
+				}
+			}
+			if(negativeCloud->points.size()>0)
+			{
+				pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> negativeCloudHandler (negativeCloud, 255, 0, 255);
+				if (!cloud_viewer_negative->updatePointCloud (negativeCloud, negativeCloudHandler, "negativeCloud"))
+				{
+					cloud_viewer_negative->addPointCloud (negativeCloud, negativeCloudHandler, "negativeCloud");
+				}
+			}
+		}
+		cloud_viewer_negative->spinOnce();
+		boost::this_thread::sleep (boost::posix_time::microseconds(100));
+	}
+	cloud_viewer_negative->close();
 }
 void LidarProcess::border_detection(const Cloud& pointcloud,Cloud& borderpointcloud,
 		OGMData<unsigned char>& ogm_data,int LASER_LAYER,double x_offset,double y_offset)
 {
 	//路沿检测函数
 	//对于点云的初始化，将其全视作可通行区域
+
 	//雷达参数
 	int col_count = pointcloud.size() / LASER_LAYER;
 
 	//路沿检测参数
-	float delta_angle_thresh = 40.0;//adjustable param 路沿检测的角度阈值
-	int cloud_window_size = 10;//adjustable param 相邻的帧数
+	float delta_angle_thresh = 60;//adjustable param 路沿检测的角度阈值
+	int cloud_window_size = 8;//adjustable param 相邻的帧数
 	if(1)
 	{
 		for(int i = 0 ; i < LASER_LAYER ; i++)
@@ -575,6 +388,10 @@ void LidarProcess::border_detection(const Cloud& pointcloud,Cloud& borderpointcl
 				int index = j * LASER_LAYER + i;
 
 				if(pointcloud.points[index].range < 0.5)
+					continue;
+				if(pointcloud.points[index].x < 2 && pointcloud.points[index].x > -2)
+					continue;
+				if(pointcloud.points[index].z > 0.1)
 					continue;
 
 				//这个方位角是正切，是对于其切线的斜率的求取（好像没有什么用）
@@ -596,13 +413,19 @@ void LidarProcess::border_detection(const Cloud& pointcloud,Cloud& borderpointcl
 				//这里就是用前后大约是10帧的点进行判断，用第一个点的切线与1点与10点之间连线的斜率进行比较，如果差距比较大，则判断是路沿
 				//实际上路沿就是这种检测效果，实际点云当检测到路沿的时候就凹陷下去一块，之后就又弯回来，然后就又正常，因此比较这个角度应该可以判断ZhuBC
 				float delta_angle = actual_tangential_angle - expected_tangential_angle;
+				/*********************************************************20180420slope detection******************/
+				double delta_range;
+				float index1_dis = (pointcloud.points[index1].y) *  (pointcloud.points[index1].y) + (pointcloud.points[index1].x) * (pointcloud.points[index1].x) + (pointcloud.points[index1].z) * (pointcloud.points[index1].z) ;
+				float index_dis = (pointcloud.points[index].y) * (pointcloud.points[index].y) + (pointcloud.points[index].x) * (pointcloud.points[index].x) + (pointcloud.points[index].z) * (pointcloud.points[index].z);
+				delta_range = sqrt(fabs((double)index1_dis - (double)index_dis));
+				/*********************************************************20180420slope detection******************/
 				if(delta_angle > 180) delta_angle -= 360;
 				else if(delta_angle < -180) delta_angle += 360;
 
 				if(delta_angle>90)
 					delta_angle = 180 - delta_angle;
 				//如果大于阈值，则认为是路沿
-				if(fabs(delta_angle) > delta_angle_thresh)
+				if(fabs(delta_angle) > delta_angle_thresh && delta_range > 1.0 && delta_range < 2)
 				{
 					borderpointcloud.push_back(pointcloud.points[index]);
 					borderpointcloud.back().passibility = 0.;
@@ -648,13 +471,13 @@ void LidarProcess::border_detection(const Cloud& pointcloud,Cloud& borderpointcl
 		      }
 	      }
 	  }
-	  int nopassible_count_thresh = 8;//同一个栅格内的5个点都是那种状态才满足。
+	  int nopassible_count_thresh = 5;//同一个栅格内的5个点都是那种状态才满足。
 	  for(int i = 0 ; i < ogm_data.ogmcell_size ; i++)
 	  {
 		  if(nopassible_point_count_ogm_count[i] > nopassible_count_thresh)
 		  {
 			  //同一个点连续扫描五次，如果都是障碍物的话，则判断为是不可通行区域ZhuBC
-			  ogm_data.ogm[i] = RIGIDNOPASSABLE;
+			  ogm_data.ogm[i] = NEGATIVENOPASSABLE;
 		  }
 		  else
 		  {
@@ -688,14 +511,16 @@ void LidarProcess::border_detection(const Cloud& pointcloud,Cloud& borderpointcl
 	}
 }
 
+
 void LidarProcess::cloud2OGM(const Cloud& pointcloud,OGMData<unsigned char>& ogm_data,int countthredshold)
 {
 	memset(ogm_data.ogm,0,ogm_data.ogmcell_size);
 	unsigned int* passible_point_count_ogm_count = new unsigned int[ogm_data.ogmcell_size];
 	unsigned int* nopassible_point_count_ogm_count = new unsigned int[ogm_data.ogmcell_size];
+	unsigned int* nopassible_point_count_negative_ogm_count = new unsigned int[ogm_data.ogmcell_size];
 	memset(passible_point_count_ogm_count,0,sizeof(int)*ogm_data.ogmcell_size);
 	memset(nopassible_point_count_ogm_count,0,sizeof(int)*ogm_data.ogmcell_size);
-
+	memset(nopassible_point_count_negative_ogm_count,0,sizeof(int)*ogm_data.ogmcell_size);
 	for (int i = 0; i < pointcloud.size(); i++) {
 		float x = pointcloud.points[i].x
 		    , y =pointcloud.points[i].y
@@ -717,25 +542,35 @@ void LidarProcess::cloud2OGM(const Cloud& pointcloud,OGMData<unsigned char>& ogm
 				//如果为之前检测到的路沿，则计数器加1
 				if (pointcloud.points[i].passibility < 0.5)
 					nopassible_point_count_ogm_count[index]++;
+				else if(pointcloud.points[i].passibility > 3.1 && pointcloud.points[i].passibility < 4.1)
+					nopassible_point_count_negative_ogm_count[index]++;
 				else
 					passible_point_count_ogm_count[index]++;
+
 			}
 		}
 	}
 	for(int i = 0 ; i < ogm_data.ogmcell_size; i++)
 	{
-		if(nopassible_point_count_ogm_count[i] > countthredshold)
+		if(nopassible_point_count_ogm_count[i] > countthredshold && nopassible_point_count_negative_ogm_count[i] < countthredshold)
 		  {
 		//同一个点连续扫描五次，如果都是障碍物的话，则判断为是不可通行区域ZhuBC
 			ogm_data.ogm[i] = RIGIDNOPASSABLE;
 		  }
-		else
+		else if(nopassible_point_count_negative_ogm_count[i] > countthredshold && nopassible_point_count_ogm_count[i] < countthredshold)
 		  {
-			ogm_data.ogm[i] = PASSABLE;
+			ogm_data.ogm[i] = NEGATIVENOPASSABLE;
 		  }
+		else if(nopassible_point_count_negative_ogm_count[i] > countthredshold && nopassible_point_count_ogm_count[i] > countthredshold)
+		{
+			ogm_data.ogm[i] = RIGIDNOPASSABLE;
+		}
+		else if(passible_point_count_ogm_count[i] > countthredshold)
+			ogm_data.ogm[i] = PASSABLE;
 	}
 	delete [] passible_point_count_ogm_count;
 	delete [] nopassible_point_count_ogm_count;
+	delete[] nopassible_point_count_negative_ogm_count;
 }
 
 void LidarProcess::ogmDetection()
@@ -1102,7 +937,7 @@ void LidarProcess::ogmDetection()
 }
 
 
-void LidarProcess::heightdiffOgmDetection(const Cloud& pointcloud,Cloud& heightdiffpointcloud
+void LidarProcess::heightdiffOgmDetection(Cloud& pointcloud,Cloud& heightdiffpointcloud
 				,OGMData<unsigned char>& ogm_data
 				,double resolution
 				,double heightdiffthreshold , int countthreshold)
@@ -1177,6 +1012,7 @@ void LidarProcess::heightdiffOgmDetection(const Cloud& pointcloud,Cloud& heightd
                     int index = row * minzogm.ogmwidth_cell + col;
 
                     if( z -  minzogm.ogm[index] > heightdiffthreshold){
+
                     	heightdiffpointcloud.push_back(pointcloud.points[i]);
                     	heightdiffpointcloud.back().passibility = 0;
                         int col1 = boost::math::round(x / ogm_data.ogmresolution) + ( ogm_data.ogmwidth_cell - 1 ) / 2;
@@ -1188,7 +1024,7 @@ void LidarProcess::heightdiffOgmDetection(const Cloud& pointcloud,Cloud& heightd
                     }
                     else
                     {
-//                    	pointcloud.points[i].passibility = 1;
+
                     	int col1 = boost::math::round(x / ogm_data.ogmresolution) + ( ogm_data.ogmwidth_cell - 1 ) / 2;
 						int row1 = boost::math::round(newy / ogm_data.ogmresolution) ;
 						int index1 = row1 * ogm_data.ogmwidth_cell + col1;
@@ -1216,9 +1052,15 @@ void LidarProcess::heightdiffOgmDetection(const Cloud& pointcloud,Cloud& heightd
 		  int row_2 = boost::math::round(newy / ogm_data.ogmresolution) ;
 		  int index_2 =  row_2 * ogm_data.ogmwidth_cell + col_2;
 		  if(ogm_data.ogm[index_2]==RIGIDNOPASSABLE)
-			  heightdiffpointcloud.points[i].passibility = 0;
+			  {
+			  	  heightdiffpointcloud.points[i].passibility = 0;
+			  }
+
 		  else
+		  {
 			  heightdiffpointcloud.points[i].passibility = 1;
+		  }
+
 		}
 	    }
 	}
@@ -1257,280 +1099,156 @@ bool LidarProcess::DoorDetection(Cloud& pointcloud,int pointnum_threshold,double
 
 }
 
+//void LidarProcess::negativeDetectionwith32(Cloud& pointcloud)
+//{
+//	int LASER_LAYER = 32;
+//	int col_count = pointcloud.size() / LASER_LAYER;
+////	for(int i = 0;i < LASER_LAYER;i ++)
+////	{
+//		for(int j = 0; j < col_count;j ++)
+//		{
+//			int index_1 = j * LASER_LAYER + 2;
+//			int index_2 = j * LASER_LAYER + 3;
+////			int index_3 = j * LASER_LAYER + grabber_H_.indexmaptable[3].number;
+////			int index_4 = j * LASER_LAYER + grabber_H_.indexmaptable[4].number;
+//			pointcloud.points[index_1].passibility = 0;
+//			pointcloud.points[index_2].passibility = 0;
+//		}
+////	}
+//}
 
-
-void LidarProcess::heightdiffDetection()
+void LidarProcess::negativeDetection(Cloud& pointcloud, int LASER_LAYER)
 {
-
-    //
-    int col_count = velodyne_pointcloud->size() / LASER_LAYER;
+	///////可以滤出一些距离不太正常的点也可以是相邻两线之间差的比较多的点。1228傍晚记
+    //负障碍检测 参数设置
+    int col_count = pointcloud.size() / LASER_LAYER;
     float deltaz_thresh = 0.3;//adjustable param //0.3
-    float negative_deltaz_thresh=0.6;//adjustable param
+    float negative_deltaz_thresh=0.3;//adjustable param
     float slope_thresh = tan(25* M_PI / 180);// adjustable param //30
-
+    double Z_Ground = 0;//adjustable param
+//    std::cout<<"col_count="<<col_count<<std::endl;
+    for(int i = 0;i<pointcloud.size();i++)
+    {
+//    	pointcloud.points[i].passibility = 0;
+    	float azimuth = atan2(pointcloud.points[i].y,pointcloud.points[i].x)*180/M_PI;
+    	while(azimuth > 360.0) azimuth -= 360;
+    	while(azimuth <=0) azimuth += 360;
+    	pointcloud.points[i].azimuth = azimuth;
+    	int mat_i = azimuth * 10;
+    	PolarPointDI temppolarpoint;
+    	temppolarpoint.distance = pointcloud.points[i].range;
+    	temppolarpoint.index = i;
+    	polaraxismat_[i%LASER_LAYER][mat_i] = temppolarpoint;
+    }
 
     for(int i = 0 ; i < col_count ; i++)
     {
-
-        float azimuth = velodyne_pointcloud->points[i * LASER_LAYER].azimuth;
-
         for(int j = 0 ; j < LASER_LAYER/**2/3*/ ; j++)
         {
 
-
-            int index_j=grabber_H_.indexmaptable[j].number;
-            int ori_index =i * LASER_LAYER + grabber_H_.indexmaptable[j].number;
-            pcl::PointXYZI temppointj=velodyne_pointcloud->points[ori_index];
-
+         	int index_j=grabber_H_.indexmaptable[j].number;//第j线对应的位置
+         	int ori_index =i * LASER_LAYER + grabber_H_.indexmaptable[j].number;//第i组数据的第j线的编号
+        	pcl::PointXYZI temppointj=pointcloud.points[ori_index];//将该点提取出来
+            //将一些不必要的点过滤掉
             if(temppointj.range < 0.5|| temppointj.range>60)
                 continue;
-            //                                        if(temppointj.range>maxrange)
-            //                                            break;
 
-//            if(velodyne_pointcloud->points[ori_index].y<4&&velodyne_pointcloud->points[ori_index].y>-4&&velodyne_pointcloud->points[ori_index].x>-2.5&&velodyne_pointcloud->points[ori_index].x<2.5) //back exist false detection , so need delete it
-//                continue;
-
-            if(velodyne_pointcloud->points[ori_index].y< -20||velodyne_pointcloud->points[ori_index].x< -30||velodyne_pointcloud->points[ori_index].x > 30) //back exist false detection , so need delete it
+            if(temppointj.y< -20||temppointj.x< -30||temppointj.x > 30) //back exist false detection , so need delete it
                 continue;
 
-            if(velodyne_pointcloud->points[ori_index].z< Z_MIN||velodyne_pointcloud->points[ori_index].z > Z_MAX) //back exist false detection , so need delete it
+            if(temppointj.z< Z_MIN||temppointj.z > Z_MAX) //back exist false detection , so need delete it
                 continue;
 
-/*            if(j>5 && temppointj.range < 5 && temppointj.z>0.3)
-                velodyne_pointcloud->points[ori_index].passibility = 0;*/
-            //last point in circle j
-            int i_start,i_stop;
-            if(i>col_count/2)
-            {
-                i_start=i-6;
-                i_stop=i-2;
-            }
-            else
-            {
-                i_start=i+2;
-                i_stop=i+6;
-            }
+//            if(temppointj.z > Z_Ground)
+//            	continue;
 
             double slope_circle=0;
-
-
-            for(int t = j + 1 ; t < LASER_LAYER && t< j+6 ; t+=1)
+            //后6线雷达数据
+            int t = j + 1;
             {
-                int index_t=grabber_H_.indexmaptable[t].number;
-                int ori_index1 =i * LASER_LAYER + grabber_H_.indexmaptable[t].number;
+            	if(j > 1 && j < LASER_LAYER - 2 && i > 20 && i < col_count - 21)
+            	{
+                	int index_t=grabber_H_.indexmaptable[t].number;
+                    int ori_index1 =i * LASER_LAYER + grabber_H_.indexmaptable[t].number;//第i组数据的第j+1线的数据
+                    int ori_index2 = i * LASER_LAYER + grabber_H_.indexmaptable[j-1].number;
+                    int ori_index3 = (i-20)* LASER_LAYER + grabber_H_.indexmaptable[j].number;
+                    int ori_index4 = (i-20)* LASER_LAYER + grabber_H_.indexmaptable[j-1].number;
+                    int ori_index5 = (i+20)* LASER_LAYER + grabber_H_.indexmaptable[j-1].number;
+                    int ori_index6 = (i+20)* LASER_LAYER + grabber_H_.indexmaptable[j].number;
+                    pcl::PointXYZI temppointt=pointcloud.points[ori_index1];
 
+                    double tempazimuthj=temppointj.azimuth ;
+                    int mat_i=tempazimuthj * 10;//这里单位是0.1度，放大了10倍，水平角度的范围是0到3600
+                    int mat_i_start=mat_i-2;
+                    if (mat_i_start<0)
+                        mat_i_start=0;
+                    int mat_i_stop=mat_i+2;
+                    if (mat_i_stop>3599)
+                        mat_i_stop=3599;
+                    int disminindex=-1;
+                    int disminindex_j=-1;
+                    int disminmat_i=mat_i_start;
+                    double dismin = 1000;
+                    double dismax = 0;
 
-
-                pcl::PointXYZI temppointt=velodyne_pointcloud->points[ori_index1];
-
-                double tempazimuthj=temppointj.azimuth ;
-                int mat_i=tempazimuthj * 10;
-
-                int mat_i_start=mat_i-2;
-                if (mat_i_start<0)
-                    mat_i_start=0;
-
-                int mat_i_stop=mat_i+2;
-                if (mat_i_stop>3599)
-                    mat_i_stop=3599;
-                int disminindex=-1;
-                int disminmat_i=mat_i_start;
-                double dismin = 1000;
-                for(int temp_i = mat_i_start ; temp_i<=mat_i_stop;temp_i++)
-                {
-                    double tempdis= polaraxismat_[index_t][temp_i].distance;
-                    int index_temp = polaraxismat_[index_t][temp_i].index;
-                    if(tempdis<0.5)
-                        continue;
-                    if(velodyne_pointcloud->points[index_temp].passibility < 0.5)
-                        continue;
-                    if  (dismin > tempdis)
+                    for(int temp_i = mat_i_start ; temp_i<=mat_i_stop;temp_i++)
                     {
-                        dismin = tempdis;
-                        disminindex=polaraxismat_[index_t][temp_i].index;
-                        disminmat_i=temp_i;
-                    }
-                }
-                if(disminindex < 0)
-                    continue;
-
-                ori_index1=disminindex;
-                temppointt=velodyne_pointcloud->points[ori_index1];
-
-                // cout<<"t-j="<<t-j<<"\tazimuthj="<<temppointj.azimuth<<"\tazimutht="<<temppointt.azimuth<<endl;
-                if(temppointt.range < 0.5)
-                    continue;
-
-
-
-                bool obstacle_found = false;
-
-
-                if(0)
-                    //if(fabs(temppointt.range - temppointj.range)<0.4 || t-j == 1)
-                {
-                    //height delta
-                    float deltaz = temppointt.z - temppointj.z;
-                    float deltar = temppointt.range - temppointj.range;
-                    //                                                 cout<<"t-j="<<t-j<<"\tazimuthj="<<temppointj.azimuth<<"\tazimutht="<<temppointt.azimuth<<endl;
-                    if(temppointt.z - temppointj.z > deltaz_thresh && fabs(temppointt.range - temppointj.range)<0.4 )
-                    {
-#ifdef USE_OMP
-                        omp_set_lock(&omplock); //获得互斥器
-#endif
-                        velodyne_pointcloud->points[ori_index1].passibility = 0.0;
-                        int index_tempt=ori_index1-LASER_LAYER;
-                        int index_tempj=ori_index-LASER_LAYER;
-                        if(index_tempt>=0&&index_tempj>=0 && (fabs(velodyne_pointcloud->points[index_tempt].z - velodyne_pointcloud->points[index_tempj].z)> deltaz_thresh-0.05))
-                            velodyne_pointcloud->points[index_tempt].passibility = 0.0;
-
-                        index_tempt=ori_index1+LASER_LAYER;
-                        index_tempj=ori_index+LASER_LAYER;
-                        if(index_tempt<col_count*LASER_LAYER &&index_tempj<col_count*LASER_LAYER
-                                && (fabs(velodyne_pointcloud->points[index_tempt].z - velodyne_pointcloud->points[index_tempj].z)> deltaz_thresh-0.05))
-                            velodyne_pointcloud->points[index_tempt].passibility = 0.0;
-
-
-#ifdef USE_OMP
-                        omp_unset_lock(&omplock); //释放互斥器
-#endif
-                        obstacle_found = true;
-                    }
-                    // jkj 2016/10/28 use double thresh because of a little false detection
-                    else if(temppointj.z - temppointt.z > negative_deltaz_thresh &&t-j == 1)//detect negative
-                    {
-
-                        obstacle_found = true;
-#ifdef USE_OMP
-                        omp_set_lock(&omplock); //获得互斥器
-#endif
-                        velodyne_pointcloud->points[ori_index].passibility = 0.0;
-#ifdef USE_OMP
-                        omp_unset_lock(&omplock); //释放互斥器
-#endif
-                    }
-
-                    if(obstacle_found)
-                        break;//
-
-                    // if(0)
-                    if(deltaz<-0.1&&t<LASER_LAYER/2&&t-j==1)  //negative obstacle
-                    {
-                        int index_next=grabber_H_.indexmaptable[t+1].number;
-                        double tempazimuthnext=temppointt.azimuth ;
-                        int mat_i=tempazimuthnext * 10;
-
-                        int mat_i_start=mat_i-2;
-                        if (mat_i_start<0)
-                            mat_i_start=0;
-
-                        int mat_i_stop=mat_i+2;
-                        if (mat_i_stop>3599)
-                            mat_i_stop=3599;
-                        int disminindex=-1;
-                        double dismin = 1000;
-                        for(int temp_i = mat_i_start ; temp_i<=mat_i_stop;temp_i++)
-                        {
-                            double tempdis= polaraxismat_[index_next][temp_i].distance;
-                            if(tempdis<0.5)
-                                continue;
-                            int index_temp = polaraxismat_[index_next][temp_i].index;
-                            if(velodyne_pointcloud->points[index_temp].passibility < 0.5)
-                                continue;
-                            if  (dismin > tempdis)
-                            {
-                                dismin = tempdis;
-                                disminindex=polaraxismat_[index_next][temp_i].index;
-                            }
-                        }
-                        if(disminindex < 0)
+                    	double tempdis= polaraxismat_[index_t][temp_i].distance;//极坐标
+                    	int index_temp = polaraxismat_[index_t][temp_i].index;
+                        if(tempdis<0.5)
                             continue;
-
-
-
-                        ori_index1=disminindex;
-                        pcl::PointXYZI temppointnext=velodyne_pointcloud->points[ori_index1];
-                        if(temppointnext.z-temppointt.z>0.1&&2*(temppointnext.range-temppointt.range)<temppointt.range-temppointj.range)
+                        if(pointcloud.points[index_temp].passibility < 0.5)
+                            continue;
+                        //取一周中最近的那个点，由于64线雷达有时候不是同一个垂直角的，所以取最近的作为正常的点来用。
+                        if  (dismin > tempdis)
                         {
-#ifdef USE_OMP
-                            omp_set_lock(&omplock); //获得互斥器
-#endif
-                            velodyne_pointcloud->points[ori_index1].passibility = 0.0;
-                            velodyne_pointcloud->points[ori_index].passibility = 0.0;
-                            obstacle_found = true;
-#ifdef USE_OMP
-                            omp_unset_lock(&omplock); //释放互斥器
-#endif
+                            dismin = tempdis;
+                            disminindex=polaraxismat_[index_t][temp_i].index;
+                            disminmat_i=temp_i;
                         }
                     }
 
-                }
-                if(obstacle_found)
-                    break;//
-
-                //if(0)
-                if(/*t-j>=3&&*/fabs(temppointt.range - temppointj.range)>0.5||t-j>2&&t-j<6)  //slope detect
-                {
-                    if(temppointj.passibility<0.7)
+                    if(disminindex < 0)
                         continue;
-                    //
-                    float deltaz = temppointt.z - temppointj.z;
-                    float deltar = temppointt.range - temppointj.range;
-                    float slope ;
-                    float slope_radial;
 
-                    //                                                pcl::PointXYZI temppointi;
+                    ori_index1=disminindex;
 
-                    //                                                        temppointi=velodyne_pointcloud->points[ori_index1];
-                    //                                                if(disminmat_i)
+                    temppointt=pointcloud.points[ori_index1];//这个是正常的那个值。
+                    if(temppointt.range < 0.5)
+                        continue;
 
-                    slope_radial= fabs(deltaz / deltar);
-                    slope=sqrt(slope_circle*slope_circle+slope_radial*slope_radial);
-                    if(slope > slope_thresh)
+                    if(1)//这个要考虑下什么时候能出来if///////////////////////////////////////////////////////////////////
                     {
-                        if(/*temppointt.z - temppointj.z */ deltaz > 0/*&&t-j>3*//*&& (fabs(temppointt.range - temppointj.range)>0.2||temppointj.range>10)*/)  //positive scope
-                        {
-#ifdef USE_OMP
-                            omp_set_lock(&omplock); //获得互斥器
-#endif
-                            velodyne_pointcloud->points[ori_index1].passibility = HDL_MIN(0.6,velodyne_pointcloud->points[ori_index1].passibility);
+                    	//height delta
+                    	int index_farthest = 0;
+                    	int index_nearest = 0;
+                    	int flag = 0;
+                        float deltaz = temppointt.z - temppointj.z;
+                        float deltar = temppointt.range - temppointj.range;
+                    	int index_tempt =ori_index2;
+    //                	if(j>=1 && pointcloud.points[index_tempt].z > Z_Ground)
+    //                		continue;
+                        //先搜索一点，然后再向外向内各扩展一根线，确保是最远的，也就是负障碍物的最远点
+                        if((temppointt.z - temppointj.z) > 0.02 && (temppointt.range - temppointj.range) < 0.2 && (temppointt.range - temppointj.range) > 0)//0.05 0.2 0
+                    	{
+                        	if(fabs(pointcloud.points[ori_index4].z - temppointj.z) > 0.05 && (temppointj.range-pointcloud.points[ori_index4].range)  > 0.8 && (temppointj.range-pointcloud.points[ori_index4].range) < 1.6)
+                        	{
+                        		int index_tempj = ori_index3;
+                        		if((temppointj.range-pointcloud.points[index_tempj].range) > 0.4*temppointj.range/10)//4*temppointj.range/10))//0.7   *temppointj.range/10
+                        		{
+                        			pointcloud.points[ori_index].passibility = 4.0;
+                        			pointcloud.points[ori_index3].passibility = 4.0;
+                        			pointcloud.points[ori_index4].passibility = 4.0;
+                        			pointcloud.points[ori_index6].passibility = 4.0;
 
-                            int index_tempt=ori_index1-LASER_LAYER;
-                            int index_tempj=ori_index -LASER_LAYER;
-                            if(index_tempt>=0 &&index_tempj>=0 )
-                            {
-                                deltaz=velodyne_pointcloud->points[index_tempt].z - velodyne_pointcloud->points[index_tempj].z;
-                                deltar=velodyne_pointcloud->points[index_tempt].range - velodyne_pointcloud->points[index_tempj].range;
-                                slope_radial= fabs(deltaz / deltar);
-                                slope=sqrt(slope_circle*slope_circle+slope_radial*slope_radial);
-                                if(slope > slope_thresh)
-                                    velodyne_pointcloud->points[index_tempt].passibility = HDL_MIN(0.6,velodyne_pointcloud->points[index_tempt].passibility);
-                            }
-                            index_tempt=ori_index1+LASER_LAYER;
-                            index_tempj=ori_index + LASER_LAYER;
-                            if(index_tempt<col_count*LASER_LAYER &&index_tempj<col_count*LASER_LAYER)
-                            {
-                                deltaz=velodyne_pointcloud->points[index_tempt].z - velodyne_pointcloud->points[index_tempj].z;
-                                deltar=velodyne_pointcloud->points[index_tempt].range - velodyne_pointcloud->points[index_tempj].range;
-                                slope_radial= fabs(deltaz / deltar);
-                                slope=sqrt(slope_circle*slope_circle+slope_radial*slope_radial);
-                                if(slope > slope_thresh)
-                                    velodyne_pointcloud->points[index_tempt].passibility = HDL_MIN(0.6,velodyne_pointcloud->points[index_tempt].passibility);
-                            }
-#ifdef USE_OMP
-                            omp_unset_lock(&omplock); //释放互斥器
-#endif
-
-                            if( velodyne_pointcloud->points[ori_index1].passibility<0.5)
-                                obstacle_found = true;
+                        		}
+                        	}
                         }
 
                     }
 
-                }
+            	}
 
-                if(obstacle_found)
-                    break;//
             }
         }
 
@@ -2162,7 +1880,7 @@ void LidarProcess::showHaarOGM(const char* windowname ,const OGMData<T>& ogmdata
     template<class T>
 void LidarProcess::showOGM(const char* windowname ,const OGMData<T>& ogmdata)
 {
-//    cvNamedWindow(windowname,0);
+    cvNamedWindow(windowname,0);
     CvMat *slopemat = cvCreateMat(ogmdata.ogmheight_cell,ogmdata.ogmwidth_cell,CV_8UC3);
     cvZero(slopemat);
     int heightnum = ogmdata.ogmheight_cell/(10/ogmdata.ogmresolution);
@@ -2198,10 +1916,18 @@ void LidarProcess::showOGM(const char* windowname ,const OGMData<T>& ogmdata)
         	if(val == RIGIDNOPASSABLE)
         	  {
         	    temp = 255;
-                    pdata[3*i] = temp;
+                    pdata[3*i] = 0;
                     pdata[3*i+1] = temp;
-                    pdata[3*i+2] = temp;
+                    pdata[3*i+2] = 0;
         	  }
+        	else if(val == NEGATIVENOPASSABLE)
+        	{
+        		temp = 255;
+        		pdata[3*i] = 0;
+        		pdata[3*i+1] = 0;
+        		pdata[3*i+2] = temp;
+        	}
+
 //                    if(pdata[i]>250)
 //                      pdata[i] = 250;
 //                    if(pdata[i]<0)
@@ -4031,7 +3757,7 @@ int LidarProcess::pointCloudProcess ()
                         //slope detection and hight diff detection //2016/12/03
                         if(flag_diffdetection)  //tahe sousuo 0
                         {
-                            heightdiffDetection();
+//                            heightdiffDetection();
 //                            std::cout<<"two end"<<std::endl;
 //                            mytime.stop();
 //                            mytime.show_s();

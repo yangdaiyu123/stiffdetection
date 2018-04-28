@@ -1,0 +1,16 @@
+/home/zx/CODE/ws0214/install_isolated/_setup_util.py
+/home/zx/CODE/ws0214/install_isolated/env.sh
+/home/zx/CODE/ws0214/install_isolated/setup.bash
+/home/zx/CODE/ws0214/install_isolated/setup.sh
+/home/zx/CODE/ws0214/install_isolated/setup.zsh
+/home/zx/CODE/ws0214/install_isolated/.rosinstall
+/home/zx/CODE/ws0214/install_isolated/share/negative//launch/negative_multivelodyne_pcap.launch
+/home/zx/CODE/ws0214/install_isolated/share/negative//rviz_cfg/covgrid_mapping.rviz
+/home/zx/CODE/ws0214/install_isolated/share/negative//rviz_cfg/calibration.rviz
+/home/zx/CODE/ws0214/install_isolated/share/negative//rviz_cfg/loam_velodyne.rviz
+/home/zx/CODE/ws0214/install_isolated/lib/pkgconfig/negative_detection.pc
+/home/zx/CODE/ws0214/install_isolated/share/negative_detection/cmake/negative_detectionConfig.cmake
+/home/zx/CODE/ws0214/install_isolated/share/negative_detection/cmake/negative_detectionConfig-version.cmake
+/home/zx/CODE/ws0214/install_isolated/share/negative_detection/package.xml
+/home/zx/CODE/ws0214/install_isolated/lib/negative_detection/negativenode
+/home/zx/CODE/ws0214/install_isolated/bin/negativenode

@@ -1,0 +1,8 @@
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/install.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/list_install_components.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/rebuild_cache.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/edit_cache.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/ivcommon_detect_changes.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/ivcommon.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/install/strip.dir
+/home/zx/CODE/ws0214/build_isolated/ivcommon/install/CMakeFiles/install/local.dir
