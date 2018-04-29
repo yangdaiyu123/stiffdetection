@@ -62,7 +62,7 @@
 
 #define LOCAL_IP "192.168.0.112"
 //#define LOCAL_IP "127.0.0.1"
-//#define FUSE
+#define FUSE
 #define SMALLGRID
 
 #ifdef SMALLGRID
