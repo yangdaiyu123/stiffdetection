@@ -70,7 +70,7 @@
 	<!--playback_mode>1(pcap) 2(pcd)</playback_mode!-->
 	<playback_mode>1</playback_mode>
 	<!--pcapfile>G:\\ivrc\\lidar\\tuolichezhe.pcap</pcapfile!-->
-	<pcapfile>/home/zx/data/0428/zx2.pcap</pcapfile>
+	<pcapfile>/media/zx/新加卷/ubuntu/data/zxdata0428/zxperfect.pcap</pcapfile>
 	<!--true or false !-->
 	<record_on>1</record_on>
 	<timeout>0.1</timeout>

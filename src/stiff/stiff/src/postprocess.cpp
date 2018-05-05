@@ -733,9 +733,15 @@ void PostProcess::loadCorrectionsFile (const std::string& correctionsFile)
 }
 void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPtr> cloud)
 {
+	cout<<"new frame coming.................................................................in"<<endl;
 	memset(point_count_ogm_.ogm , 0 , point_count_ogm_.ogmcell_size*sizeof(int));//每次都要置零,避免填充错乱
 	memset(point_count_ogm_big_.ogm , 0 , point_count_ogm_big_.ogmcell_size*sizeof(int));
-	memset(maxz_ogm_.ogm , 0 , maxz_ogm_.ogmcell_size*sizeof(int));
+	for(int i=0;i<maxz_ogm_. ogmcell_size;i++){
+		maxz_ogm_.ogm[i]=-11.11;
+	}
+	for(int i=0;i<maxz_ogm_big_.ogmcell_size;i++){
+		maxz_ogm_big_.ogm[i]=-11.11;
+	}
 	//		memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned int));
 	memset(ogm_msg_.ogm,0,ogm_msg_.ogmcell_size*sizeof(unsigned char));
 
@@ -755,14 +761,15 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			float newy = y + ogm_y_offset;//ogm_y_offset
 			//					if(cloud->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
 			//					                continue;
-			if(x>-1.6&&x<1.6&&y>-1&&y<3){		//排除车身周围
+			if(x>-1&&x<1&&y>-1&&y<3){		//排除车身周围
 				continue;
 			}
-			if(framecount==0){																			//第一帧全部都投影到小栅格，部分投影到大栅格,
+			if(framecount==0||framecount==1){																			//第一帧全部都投影到小栅格，部分投影到大栅格,
 				if((x >=-point_count_ogm_.ogmwidth / 2  && x <= point_count_ogm_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
 						(newy >=0 && newy < point_count_ogm_.ogmheight) &&
 						( z <=  Z_MAX))
 				{
+					if(x>-2&&x<2&&y<3.5&&y>-1) continue;
 					int col = boost::math::round(x / point_count_ogm_.ogmresolution) + ( point_count_ogm_.ogmwidth_cell - 1 ) / 2;
 					int row = boost::math::round(newy / point_count_ogm_.ogmresolution) ;
 
@@ -775,10 +782,14 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 					{
 						int index = row * point_count_ogm_.ogmwidth_cell + col;
 						point_count_ogm_.ogm[index]++;
+						if( maxz_ogm_.ogm[index] < z)
+						{
+							maxz_ogm_.ogm[index] = z;
+						}
 					}
 				}
 				if(x*x+y*y<RADIUS){continue;}
-				else if(x*x+y*y<400||(x>-5&&x<5&&y<50))
+				else if(x*x+y*y<625||(x>-5&&x<5&&y<50))//这里把大栅格较检测区域扩大了一圈，
 				{
 					//						cout<<"..............."<<endl;
 					if((x >=-point_count_ogm_big_.ogmwidth / 2  && x <= point_count_ogm_big_.ogmwidth / 2) &&//这里的条件是否需要再考虑一下
@@ -797,6 +808,9 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 						{
 							int index = row * point_count_ogm_big_.ogmwidth_cell + col;
 							point_count_ogm_big_.ogm[index]++;
+							if(maxz_ogm_big_.ogm[index]<z){
+								maxz_ogm_big_.ogm[index]=z;
+							}
 						}
 					}
 				}
@@ -804,7 +818,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			}
 			else{
 				if(x*x+y*y<RADIUS){continue;}														//这里只拼接半径之外的到大栅格
-				else if(x*x+y*y<400||(x>-5&&x<5&&y<50)){
+				else if(x*x+y*y<625||(x>-5&&x<5&&y<50)){
 					if((x >=-point_count_ogm_big_.ogmwidth / 2  && x <= point_count_ogm_big_.ogmwidth / 2) &&
 							(newy >=0 && newy < point_count_ogm_big_.ogmheight) &&
 							( z <=  Z_MAX))
@@ -821,6 +835,9 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 						{
 							int index = row * point_count_ogm_big_.ogmwidth_cell + col;
 							point_count_ogm_big_.ogm[index]++;
+							if(maxz_ogm_big_.ogm[index]<z){
+								maxz_ogm_big_.ogm[index]=z;
+							}
 						}
 
 					}
@@ -828,7 +845,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 				}
 			}
 		}
-
+		framecount++;
 
 		//test
 		//		for(int i=point_count_ogm_.ogmwidth_cell/2;i<point_count_ogm_.ogmwidth_cell/2+6/point_count_ogm_.ogmresolution;i++){
@@ -838,39 +855,8 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 		//		std::cout<<std::endl;
 		/////////////////////////////////
 		//为每个栅格赋值maxz
-		if(framecount==0){
-			for (int i = 0; i < cloud[cloudi]->points.size(); i++)//目前没有处理融合的状况
-			{
-				float x = cloud[cloudi]->points[i].x,
-						y = cloud[cloudi]->points[i].y,
-						z = cloud[cloudi]->points[i].z;
-				//					if((x*x+y*y)>100) continue;												QNMLGB干嘛要这样啊你这sb
-				float newy = y + ogm_y_offset;
-				//			if(cloud[cloudi]->points[i].intensity < 15.0f)//排除噪声干扰，只考虑反射率较高的点
-				//			                continue;
-				if(x>-1.5&&x<1.5&&y>-1&&y<4){		//排除车身周围------------------------------------zx
-					continue;
-				}
 
-				//			            newy = y + maxz_ogm_.ogmheight/2;
-				if((x >=-maxz_ogm_.ogmwidth / 2  && x <= maxz_ogm_.ogmwidth / 2) &&
-						(newy >=0 && newy < maxz_ogm_.ogmheight) &&
-						(z >= - 2 && z <=  Z_MAX))
-				{
-					int col = boost::math::round(x / maxz_ogm_.ogmresolution) + ( maxz_ogm_.ogmwidth_cell - 1 ) / 2;
-					int row = boost::math::round(newy / maxz_ogm_.ogmresolution) ;
 
-					if((row >=0 && row < maxz_ogm_.ogmheight_cell)					//加了_cell的才是栅格zx
-							&& (col >=0 && col < maxz_ogm_.ogmwidth_cell))
-					{
-						int index = row * maxz_ogm_.ogmwidth_cell + col;
-						if( maxz_ogm_.ogm[index] < z)
-							maxz_ogm_.ogm[index] = z;
-					}
-				}
-			}
-		}
-		framecount++;
 		///test
 		//		for(int i=maxz_ogm_.ogmwidth_cell/2;i<maxz_ogm_.ogmwidth_cell/2+15/maxz_ogm_.ogmresolution;i++){
 		//				int index=35/maxz_ogm_.ogmresolution*maxz_ogm_.ogmwidth_cell+i;
@@ -969,19 +955,60 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 #endif
 					{
 						//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
-						memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+						float maxz1=maxz_ogm_.ogm[i*maxz_ogm_.ogmwidth_cell+j-1];
+						float maxz2=maxz_ogm_.ogm[i*maxz_ogm_.ogmwidth_cell+j+count];
+						if(abs(maxz1+11.11)<0.01){
+							for(int hi=1;hi<5;hi++){
+								for(int sign=0;sign<2;sign++){
+									hi=-hi;
+									for(int wj=j-1;wj>j-11;wj--){
+										int index=(i+hi)*maxz_ogm_.ogmwidth_cell+wj;
+										if(abs(maxz_ogm_.ogm[index]+11.11)>0.01){
+											maxz1=maxz_ogm_.ogm[index];
+											break;
+										}
+									}
+									if(abs(maxz1+11.11)>0.01) break;
+								}
+								if(abs(maxz1+11.11)>0.01) break;
+							}
+						}
+						//maxz2
+						if(abs(maxz2+11.11)<0.01){
+							for(int hi=1;hi<5;hi++){
+								for(int sign=0;sign<2;sign++){
+									hi=-hi;
+									for(int wj=j+count;wj<j+count+10;wj++){
+										int index=(i+hi)*maxz_ogm_.ogmwidth_cell+wj;
+										if(abs(maxz_ogm_.ogm[index]+11.11)>0.01){
+											maxz2=maxz_ogm_.ogm[index];
+											break;
+										}
+									}
+									if(abs(maxz2+11.11)>0.01) break;
+								}
+								if(abs(maxz2+11.11)>0.01) break;
+							}
+						}
+						bool heightstate=true;
+						if(abs(maxz1+11.11)>0.01&&abs(maxz2+11.11)>0.01&&abs(maxz1-maxz2)<0.4){
+							heightstate=false;
+						}
+						if(heightstate){
+							memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
 
-						//										for(int d=0;d<count;d++)
-						//										{
-						//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-						//										}
-						//										std::cout<<"........................"<<std::endl;
-						vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-						vecright_.push_back(j);
-						vecright_.push_back(count);
+							//										for(int d=0;d<count;d++)
+							//										{
+							//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+							//										}
+							//										std::cout<<"........................"<<std::endl;
+							vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+							vecright_.push_back(j);
+							vecright_.push_back(count);
+						}
 
 					}
 			}
@@ -1052,19 +1079,60 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 					{
 						//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
 						//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
-						memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-						//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+						float maxz1=maxz_ogm_.ogm[i*maxz_ogm_.ogmwidth_cell+j-1];
+						float maxz2=maxz_ogm_.ogm[i*maxz_ogm_.ogmwidth_cell+j+count];
+						if(abs(maxz1+11.11)<0.01){
+							for(int hi=1;hi<5;hi++){
+								for(int sign=0;sign<2;sign++){
+									hi=-hi;
+									for(int wj=j-1;wj>j-11;wj--){
+										int index=(i+hi)*maxz_ogm_.ogmwidth_cell+wj;
+										if(abs(maxz_ogm_.ogm[index]+11.11)>0.01){
+											maxz1=maxz_ogm_.ogm[index];
+											break;
+										}
+									}
+									if(abs(maxz1+11.11)>0.01) break;
+								}
+								if(abs(maxz1+11.11)>0.01) break;
+							}
+						}
+						//maxz2
+						if(abs(maxz2+11.11)<0.01){
+							for(int hi=1;hi<5;hi++){
+								for(int sign=0;sign<2;sign++){
+									hi=-hi;
+									for(int wj=j+count;wj<j+count+10;wj++){
+										int index=(i+hi)*maxz_ogm_.ogmwidth_cell+wj;
+										if(abs(maxz_ogm_.ogm[index]+11.11)>0.01){
+											maxz2=maxz_ogm_.ogm[index];
+											break;
+										}
+									}
+									if(abs(maxz2+11.11)>0.01) break;
+								}
+								if(abs(maxz2+11.11)>0.01) break;
+							}
+						}
+						bool heightstate=true;
+						if(abs(maxz1+11.11)>0.01&&abs(maxz2+11.11)>0.01&&abs(maxz1-maxz2)<0.4){
+							heightstate=false;
+						}
+						if(heightstate){
+							memset(&ogm_msg_.ogm[index],5,count*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
+							//										memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
 
-						//										for(int d=0;d<count;d++)
-						//										{
-						//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-						//										}
-						//										std::cout<<"........................"<<std::endl;
-						vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
-						vecright_.push_back(j);
-						vecright_.push_back(count);
+							//										for(int d=0;d<count;d++)
+							//										{
+							//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+							//										}
+							//										std::cout<<"........................"<<std::endl;
+							vecright_.push_back(point_count_ogm_.ogmheight_cell-i-1);
+							vecright_.push_back(j);
+							vecright_.push_back(count);
+						}
 
 					}
 			}
@@ -1113,15 +1181,15 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 		//				{
 		//					if(pathClear(i,j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
 		//					{
-		//						for(int k=0;k<count;k++)
-		//						{
-		//							memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
-		//							memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
-		////							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
-		////							ogm_msg_.ogm[index]=5;;
-		////							ogm_msg_.ogm[index+1]=5;
-		//							index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
-		//						}
+		//								for(int k=0;k<count;k++)
+		//								{
+		//									memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+		//									memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+		//		//							std::cout<<ogm_msg_.ogm[index]<<" "<<ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell]<<std::endl;
+		//		//							ogm_msg_.ogm[index]=5;;
+		//		//							ogm_msg_.ogm[index+1]=5;
+		//									index+=2*ogm_msg_.ogmwidth_cell;			//在图像和栅格坐标系下分别是+= 和-=
+		//								}
 		////										std::cout<<"........................"<<std::endl;
 		//						vecup_.push_back(point_count_ogm_.ogmheight_cell-i-1);
 		//						vecup_.push_back(j);
@@ -1132,7 +1200,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 		//				if(count>0) i+=count-1;
 		//
 		//			}
-		for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<50/point_count_ogm_.ogmresolution;i++)
+		for(int i=20/point_count_ogm_.ogmresolution+6/point_count_ogm_.ogmresolution;i<40/point_count_ogm_.ogmresolution;i++)
 		{
 			float actual_x=(j-20/point_count_ogm_.ogmresolution)*0.2;
 			float actual_y=(i-20/point_count_ogm_.ogmresolution)*0.2;
@@ -1146,7 +1214,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			else thresh=GRID_THRESH3;
 			int count=0;
 			if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
-					&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
+					&&i<20/point_count_ogm_.ogmresolution+2/point_count_ogm_.ogmresolution&&i>20/point_count_ogm_.ogmresolution-4/point_count_ogm_.ogmresolution)
 				continue;
 			int index=i*point_count_ogm_.ogmwidth_cell+j;
 			float bound=0;
@@ -1210,7 +1278,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			//用于记录连续没有点云的栅格数
 			float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
 					*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
-			while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&bound<400)//0221这里的10之前是16zx
+			while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&bound<400)//
 			{
 				//									std::cout<<"................"<<count+i<<std::endl;
 				count++;
@@ -1223,37 +1291,14 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			}
 			//								int tempindex=index;
 			//								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-			index=4*i*ogm_msg_.ogmwidth_cell+j*4;//栅格地图上悬崖起始点索引
-			int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+			index=2*i*ogm_msg_.ogmwidth_cell+j*2;//栅格地图上悬崖起始点索引
+			int index2=(2*i+1)*ogm_msg_.ogmwidth_cell+2*j;
 			int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
 			int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
 			if(count>thresh)								//可调参数
 			{
-				//											float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-				//											if(j+count==end_right-1){thresh_flat=-1;}//如果无点区域直接出界
-				//											else{
-				//												for(int k=4*i;k<4*i+4;k++){
-				//													for(int l=4*j-4;l<4*j;l++){
-				//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-				//														if(maxz_ogm_.ogm[small_i]>maxz1){
-				//															maxz1=maxz_ogm_.ogm[small_i];
-				//															if(abs(maxz1)>0.1) break;
-				//														}
-				//													}
-				//													if(abs(maxz1)>0.1) break;
-				//												}
-				//												for(int k=4*i;k<4*i+4;k++){
-				//													for(int l=4*(j+count);l<4*(j+count+1);l++){
-				//														int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-				//														if(maxz_ogm_.ogm[small_i]>maxz2){
-				//															maxz2=maxz_ogm_.ogm[small_i];
-				//															if(abs(maxz2)>0.1) break;
-				//														}
-				//													}
-				//													if(abs(maxz2)>0.1) break;
-				//												}
-				//												thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-				//											}
+
+
 
 #ifdef SMALLGRID
 				//									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
@@ -1270,23 +1315,68 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 					}
 				}
 				//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+
 				if(state)//
 #endif
 				{
-					//										std::cout<<"<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>"<<std::endl;
+					bool heightstate=true;
+					float maxz1=maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j-1];
+					float maxz2=maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j+count];
+//					cout<<"before is "<<maxz1<<"  "<<maxz2<<endl;
+					if(abs(maxz1+11.11)<0.01){
+						for(int hi=1;hi<5;hi++){
+							for(int sign=0;sign<2;sign++){
+								hi=-hi;
+								for(int wj=j-1;wj>j-11;wj--){
+									int index=(i+hi)*maxz_ogm_big_.ogmwidth_cell+wj;
+									if(abs(maxz_ogm_big_.ogm[index]+11.11)>0.01){
+										maxz1=maxz_ogm_big_.ogm[index];
+										break;
+									}
+								}
+								if(abs(maxz1+11.11)>0.01) break;
+							}
+							if(abs(maxz1+11.11)>0.01) break;
+						}
+					}
+					if(abs(maxz2+11.11)<0.01){
+						for(int hi=1;hi<5;hi++){
+							for(int sign=0;sign<2;sign++){
+								hi=-hi;
+								for(int wj=j+count;wj<j+count+10;wj++){
+									int index=(i+hi)*maxz_ogm_big_.ogmwidth_cell+wj;
+									if(abs(maxz_ogm_big_.ogm[index]+11.11)>0.01){
+										maxz2=maxz_ogm_big_.ogm[index];
+										break;
+									}
+								}
+								if(abs(maxz2+11.11)>0.01) break;
+							}
+							if(abs(maxz2+11.11)>0.01) break;
+						}
+					}
+//					cout<<"after is "<<maxz1<<"  "<<maxz2<<endl;
+					if(abs(maxz1+11.11)>0.1&&abs(maxz2+11.11)>0.1&&(maxz1-maxz2)<0.4){
+						heightstate=false;
+					}
+
 					//												memset(&ogm_msg_.ogm[index],5,4*count*sizeof(unsigned char));
 					//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
 					//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
-					//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+					//					//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+					if(heightstate){
+						memset(&ogm_msg_.ogm[index],5,count*2*sizeof(unsigned char));
+						memset(&ogm_msg_.ogm[index2],5,count*2*sizeof(unsigned char));
 
-					//										for(int d=0;d<count;d++)
-					//										{
-					//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-					//										}
-					//										std::cout<<"........................"<<std::endl;
-					vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
-					vecright_big_.push_back(j);
-					vecright_big_.push_back(count);
+						//										for(int d=0;d<count;d++)
+						//										{
+						//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+						//										}
+						//										std::cout<<"........................"<<std::endl;
+						vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+						vecright_big_.push_back(j);
+						vecright_big_.push_back(count);
+					}
 
 				}
 			}
@@ -1319,37 +1409,13 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			}
 			int tempindex=index;
 			//								int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
-			index=4*i*ogm_msg_.ogmwidth_cell+4*j;//栅格地图上悬崖起始点索引
-			int index2=(4*i+1)*ogm_msg_.ogmwidth_cell+4*j;
+			index=2*i*ogm_msg_.ogmwidth_cell+j*2;//栅格地图上悬崖起始点索引
+			int index2=(2*i+1)*ogm_msg_.ogmwidth_cell+2*j;
 			int index3=(4*i+2)*ogm_msg_.ogmwidth_cell+4*j;
 			int index4=(4*i+3)*ogm_msg_.ogmwidth_cell+4*j;
 			if(count>thresh)								//可调参数
 			{
-				//									float thresh_flat=0,maxz1=-10,maxz2=-10;//用来排除地面点云间隙造成的误检
-				//									if(j==point_count_ogm_big_.ogmwidth_cell/2-20/point_count_ogm_big_.ogmresolution){thresh_flat=-1;}
-				//									else{
-				//										for(int k=4*i;k<4*i+4;k++){
-				//											for(int l=4*j-1;l>4*j-5;l--){
-				//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-				//												if(maxz_ogm_.ogm[small_i]>maxz1){
-				//													maxz1=maxz_ogm_.ogm[small_i];
-				//													if(abs(maxz1)>0.1) break;
-				//												}
-				//											}
-				//											if(abs(maxz1)>0.1) break;
-				//										}
-				//										for(int k=4*i;k<4*i+4;k++){
-				//											for(int l=4*(j+count);l<4*(j+count+1);l++){
-				//												int small_i=k*maxz_ogm_.ogmwidth_cell+l;
-				//												if(maxz_ogm_.ogm[small_i]>maxz2){
-				//													maxz2=maxz_ogm_.ogm[small_i];
-				//													if(abs(maxz2)>0.1) break;
-				//												}
-				//											}
-				//											if(abs(maxz2)>0.1) break;
-				//										}
-				//										thresh_flat=(maxz1!=0&&maxz2!=0)?FLAT_THRESH:(-1);
-				//									}
+
 #ifdef SMALLGRID
 				//									if((pathClear(i,j)&&pathClear(i,j+int(count/3)))&&pathClear(i,j+int(0.66*count))&&pathClear(i,j+count))
 				//									if((pathClear(2*i,2*j)&&pathClear(2*i,2*(j+int(count/3))))&&pathClear(2*i,2*(j+int(0.66*count)))&&pathClear(2*i,2*(j+count)))
@@ -1365,24 +1431,75 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 					}
 				}
 				//											if((pathClear(2*i,j*2)&&pathClear((i)*2,2*(j+count/2)))&&pathClear((i)*2,2*(j+count)))
+
+
 				if(state)//
 #endif
 				{
+					bool heightstate=true;
+					float maxz1=maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j-1];
+					float maxz2=maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j+count];
+					cout<<"before is "<<maxz1<<"  "<<maxz2<<endl;
+					if(abs(maxz1+11.11)<0.01){
+						for(int hi=1;hi<5;hi++){
+							for(int sign=0;sign<2;sign++){
+								hi=-hi;
+								for(int wj=j-1;wj>j-11;wj--){
+									int index=(i+hi)*maxz_ogm_big_.ogmwidth_cell+wj;
+									if(abs(maxz_ogm_big_.ogm[index]+11.11)>0.01){
+										maxz1=maxz_ogm_big_.ogm[index];
+										break;
+									}
+								}
+								if(abs(maxz1+11.11)>0.01) break;
+							}
+							if(abs(maxz1+11.11)>0.01) break;
+						}
+					}
+					if(abs(maxz2+11.11)<0.01){
+						for(int hi=1;hi<5;hi++){
+							for(int sign=0;sign<2;sign++){
+								hi=-hi;
+								for(int wj=j+count;wj<j+count+10;wj++){
+									int index=(i+hi)*maxz_ogm_big_.ogmwidth_cell+wj;
+									if(abs(maxz_ogm_big_.ogm[index]+11.11)>0.01){
+										maxz2=maxz_ogm_big_.ogm[index];
+										break;
+									}
+								}
+								if(abs(maxz2+11.11)>0.01) break;
+							}
+							if(abs(maxz2+11.11)>0.01) break;
+						}
+					}
+					cout<<"after is "<<maxz1<<"  "<<maxz2<<endl;
+					if(abs(maxz1+11.11)>0.1&&abs(maxz2+11.11)>0.1&&(maxz1-maxz2)<0.4){
+						heightstate=false;
+					}
+					//					输出端点高度
+					//					cout<<"lllllllllllllllllllleft"<<endl;
+					//					cout<<point_count_ogm_big_.ogm[i*point_count_ogm_big_.ogmwidth_cell+j-1]<<"   "<<point_count_ogm_big_.ogm[i*point_count_ogm_big_.ogmwidth_cell+j+count]<<endl;
+					//					cout<<maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j-1]<<"  "<<maxz_ogm_big_.ogm[i*maxz_ogm_big_.ogmwidth_cell+j+count]<<endl;
+
 					//										cout<<"the maxz is  "<<maxz2<<"   "<<maxz1<<endl;
 					//										cout<<"absolute value is "<<abs(maxz1-maxz2)<<endl;
 					//												memset(&ogm_msg_.ogm[index],5,count*4*sizeof(unsigned char));
 					//												memset(&ogm_msg_.ogm[index2],5,count*4*sizeof(unsigned char));
 					//												memset(&ogm_msg_.ogm[index3],5,count*4*sizeof(unsigned char));
 					//												memset(&ogm_msg_.ogm[index4],5,count*4*sizeof(unsigned char));
+					if(heightstate){
+						memset(&ogm_msg_.ogm[index],5,count*2*sizeof(unsigned char));
+						memset(&ogm_msg_.ogm[index2],5,count*2*sizeof(unsigned char));
 
-					//										for(int d=0;d<count;d++)
-					//										{
-					//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
-					//										}
-					//										std::cout<<"........................"<<std::endl;
-					vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
-					vecright_big_.push_back(j);
-					vecright_big_.push_back(count);
+						//										for(int d=0;d<count;d++)
+						//										{
+						//											std::cout<<ogm_msg_.ogm[index+d]<<"  ";
+						//										}
+						//										std::cout<<"........................"<<std::endl;
+						vecright_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
+						vecright_big_.push_back(j);
+						vecright_big_.push_back(count);
+					}
 
 				}
 			}
@@ -1403,7 +1520,7 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 		//				//排除车体周围范围
 		//				if(j>point_count_ogm_.ogmwidth_cell/2-3/point_count_ogm_.ogmresolution&&j<point_count_ogm_.ogmwidth_cell/2+3/point_count_ogm_.ogmresolution
 		//						&&i<point_count_ogm_.ogmheight_cell/2+2/point_count_ogm_.ogmresolution&&i>point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution)
-		//					continue;
+		//					continue;这里记得要改，不是i/2了
 		//				int index=i*point_count_ogm_.ogmwidth_cell+j;
 		//				while(point_count_ogm_.ogm[index]==0&&count<6&&count<point_count_ogm_.ogmheight_cell/2-4/point_count_ogm_.ogmresolution-i)//-point_count_ogm_.ogmheight_cell/2//&&count<point_count_ogm_.ogmheight_cell-i
 		//				{
@@ -1448,20 +1565,15 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			else if(i<50/point_count_ogm_big_.ogmresolution) thresh=5/point_count_ogm_big_.ogmresolution;
 			//								else thresh=GRID_THRESH3;
 			int count=0;
-			if(j>point_count_ogm_big_.ogmwidth_cell/2-3/point_count_ogm_big_.ogmresolution&&j<point_count_ogm_big_.ogmwidth_cell/2+3/point_count_ogm_big_.ogmresolution
-					&&i<point_count_ogm_big_.ogmheight_cell/2+2/point_count_ogm_big_.ogmresolution&&i>point_count_ogm_big_.ogmheight_cell/2-4/point_count_ogm_big_.ogmresolution)
-				continue;
+
 			int index=i*point_count_ogm_big_.ogmwidth_cell+j;
 			//						float bound=0;
-			if(j==92||j==93||j==94){
 
-			}
 			float bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution)*0.4
 					*(i-20/point_count_ogm_big_.ogmresolution)*0.4;
-			while(point_count_ogm_big_.ogm[index]<POINT_COUNT_THRESH&&count<50/point_count_ogm_big_.ogmresolution-i)//
+			while(point_count_ogm_big_.ogm[index]<3&&index<point_count_ogm_big_.ogmcell_size)//&&count<40/point_count_ogm_big_.ogmresolution-i
 			{
-				//					cout<<"the point count is  "<<i<<"  "<<j<<endl;
-				//					cout<<"the index is "<<index<<endl;
+
 				bound=(j-20/point_count_ogm_big_.ogmresolution)*0.4*(j-20/point_count_ogm_big_.ogmresolution)*0.4+(i-20/point_count_ogm_big_.ogmresolution+count)*0.4
 						*(i-20/point_count_ogm_big_.ogmresolution+count)*0.4;
 
@@ -1470,21 +1582,25 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 			}
 			//				cout<<"the count is "<<count<<endl;
 			//							index=i*point_count_ogm_big_.ogmwidth_cell+j;//复位zx
-			index=4*i*ogm_msg_.ogmwidth_cell+j*4;
+			index=2*i*ogm_msg_.ogmwidth_cell+j*2;
 			//							int index_img=(point_count_ogm_big_.ogmheight_cell-i-1)*point_count_ogm_big_.ogmwidth_cell+j;//这是在图像上的索引，用于测试
 			if(count>thresh)								//可调参数
 			{
 				//									if(pathClear(4*i,4*j))	//判断一下由雷达到无点区域中点之间有无障碍  pathClear(j,i+count/2)
-				if(pathClear(2*i,2*j))
+				if(pathClear(2*i,2*j))//pathClear(2*i,2*j)
 				{
-					//										for(int k=0;k<count;k++)
-					//										{
-					//											memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
-					//											memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-					//											memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-					//											memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
-					//											index+=4*ogm_msg_.ogmwidth_cell;
-					//										}
+					for(int k=0;k<count;k++)
+					{
+						//																memset(&ogm_msg_.ogm[index],5,4*sizeof(unsigned char));
+						//																memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+						//																memset(&ogm_msg_.ogm[index+2*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+						//																memset(&ogm_msg_.ogm[index+3*ogm_msg_.ogmwidth_cell],5,4*sizeof(unsigned char));
+						//																index+=4*ogm_msg_.ogmwidth_cell;
+						memset(&ogm_msg_.ogm[index],5,2*sizeof(unsigned char));
+						memset(&ogm_msg_.ogm[index+ogm_msg_.ogmwidth_cell],5,2*sizeof(unsigned char));
+						index+=2*ogm_msg_.ogmwidth_cell;
+
+					}
 					//						std::cout<<"............jj is............"<<j<<std::endl;
 					vecup_big_.push_back(point_count_ogm_big_.ogmheight_cell-i-1);
 					vecup_big_.push_back(j);
@@ -1496,6 +1612,90 @@ void PostProcess::countogmpoints(vector<pcl::PointCloud<pcl::PointXYZI>::ConstPt
 
 		}
 	}
+	//	通过窗口内悬崖点数量判断是否为悬崖
+	for(int i=0;i<vecright_.size()/3;i++){
+		int originindex=(ogm_msg_.ogmheight_cell-vecright_[3*i]-1)*ogm_msg_.ogmwidth_cell+vecright_[3*i+1];
+		int index=0;
+		int count=0;
+		for(int windowi=ogm_msg_.ogmheight_cell-vecright_[3*i]-5;windowi<ogm_msg_.ogmheight_cell-vecright_[3*i]+4;windowi++){
+			for(int windowj=vecright_[3*i+1];windowj<vecright_[3*i+1]+5;windowj++){
+				index=windowi*ogm_msg_.ogmwidth_cell+windowj;
+				if(ogm_msg_.ogm[index]==5)
+				{
+					count++;
+				}
+			}
+		}
+		if(count<15){
+			memset(&ogm_msg_.ogm[originindex],0,vecright_[3*i+2]*sizeof(unsigned char));
+		}
+	}
+
+	for(int i=0;i<vecup_.size()/3;i++){
+		int originindex=(ogm_msg_.ogmheight_cell-vecup_[3*i]-1)*ogm_msg_.ogmwidth_cell+vecup_[3*i+1];
+		int index=0;
+		int count=0;
+		for(int windowi=ogm_msg_.ogmheight_cell-vecup_[3*i]-1;windowi<ogm_msg_.ogmheight_cell-vecup_[3*i]+6;windowi++){
+			for(int windowj=vecup_[3*i+1]-2;windowj<vecup_[3*i+1]+3;windowj++){
+				index=windowi*ogm_msg_.ogmwidth_cell+windowj;
+				if(ogm_msg_.ogm[index]==5)
+				{
+					count++;
+				}
+			}
+		}
+		if(count<12){
+			for(int k=0;k<vecup_[3*i+2];k++){
+				ogm_msg_.ogm[originindex]=0;
+				originindex+=ogm_msg_.ogmwidth_cell;
+			}
+		}
+	}
+	for(int i=0;i<vecright_big_.size()/3;i++){
+		int originindex=2*(point_count_ogm_big_.ogmheight_cell-vecright_big_[3*i]-1)*ogm_msg_.ogmwidth_cell+2*vecright_big_[3*i+1];
+		int index=0;
+		int count=0;
+		for(int windowi=2*(point_count_ogm_big_.ogmheight_cell-vecright_big_[3*i]-1)-4;windowi<2*(point_count_ogm_big_.ogmheight_cell-vecright_big_[3*i]-1)+5;windowi++){
+			for(int windowj=2*vecright_big_[3*i+1];windowj<2*vecright_big_[3*i+1]+5;windowj++){
+				index=windowi*ogm_msg_.ogmwidth_cell+windowj;
+				if(ogm_msg_.ogm[index]==5)
+				{
+					count++;
+				}
+			}
+		}
+		if(count<20){
+			memset(&ogm_msg_.ogm[originindex],0,vecright_big_[3*i+2]*2*sizeof(unsigned char));
+			memset(&ogm_msg_.ogm[originindex+ogm_msg_.ogmwidth_cell],0,vecright_big_[3*i+2]*2*sizeof(unsigned char));
+		}
+	}
+	//TODO vecup_big_
+	//	for(int i=10/ogm_msg_.ogmresolution;i<40/ogm_msg_.ogmresolution;){
+	//		for(int j=0;j<ogm_msg_.ogmwidth_cell;){
+	//			float actual_x=(j-20/ogm_msg_.ogmresolution)*0.2;
+	//			float actual_y=(i-20/ogm_msg_.ogmresolution)*0.2;
+	//			int count=0;
+	//			vector<int> vecindex;
+	//			vecindex.clear();
+	//			int window
+	//			for(int windowi=i;windowi<i+9;windowi++){
+	//				for(int windowj=j;windowj<j+5;windowj++){
+	//					int index=windowi*ogm_msg_.ogmwidth_cell+windowj;
+	//					if(ogm_msg_.ogm[index]==5){
+	//						count++;
+	//						vecindex.push_back(index);
+	//					}
+	//				}
+	//			}
+	//			if(count<30){
+	//				for(auto it=vecindex.begin();it!=vecindex.end();it++){
+	//					ogm_msg_.ogm[*it]=0;
+	//				}
+	//			}
+	//			j+=5;
+	//		}
+	//		i+=9;
+	//	}
 
 }
 void PostProcess::countogmpoints(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud)
@@ -2667,6 +2867,17 @@ void PostProcess::circleradiusDetection(pcl::PointCloud<pcl::PointXYZI>::Ptr clo
 						}
 					}
 				}
+<<<<<<< HEAD
+=======
+//				MyTime mytime;
+//				mytime.start();
+				countogmpoints(vtotalcloud_);
+				showOGM("grid",point_count_ogm_,vecright_,vecup_);
+				vecright_.clear();							//TODO:检测下size
+				vecup_.clear();
+//				mytime.show_s();
+			}
+>>>>>>> 49b1c9702ea15b78c7fe024f2443d7be49c17d41
 
 
 			}

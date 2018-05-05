@@ -12,6 +12,8 @@
   	<param name="config_file" value="$(arg configfile)"/>
   </node>
 
+
+
    <node pkg="sensor_driver" type="getmutivelodynedata" name="getmutivelodynedata" args="--logtostderr=0  --colorlogtostderr=1 --stderrthreshold=2   $(arg logdir)" output="screen">
   <param name="fix_frame" value="true"/>
   </node>
