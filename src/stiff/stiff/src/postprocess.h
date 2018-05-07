@@ -64,12 +64,12 @@
 //#define LOCAL_IP "127.0.0.1"
 #define FUSE
 #define SMALLGRID
-
+#define TEST
 #ifdef SMALLGRID
 #define POINT_COUNT_THRESH 1
 #define FROMLADAR_LOCAL_PORT 9906
 #define PATHTHRESH 1.5//判断激光雷达到悬崖候选区域是否有障碍物zx
-#define GRID_THRESH 4 //小栅格区域的检测阈值
+#define GRID_THRESH 6 //小栅格区域的检测阈值
 #define GRID_THRESH_BIG 6//大栅格区域的检测阈值
 #define GRID_THRESH2 24//6
 #define GRID_THRESH3 24//10
@@ -202,9 +202,9 @@ private:
 	OGMData<float> maxz_ogm_;
 	OGMData<float> maxz_ogm_big_;
 	OGMData<unsigned char> ogm_msg_;
-	vector<int> vectest_;
+	vector<int> vec4side_;
 	vector<int> vecleft_;
-	vector<int> vecright_;
+	vector<int> vec2side_;
 	vector<int> vecright_big_;
 	vector<int> vecup_big_;
 	vector<int> vecup_;
